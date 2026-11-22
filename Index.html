@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cantina Volpi — Gestão de Compras v5.0</title>
+    <!-- Fonts: Inter & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SheetJS -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-app: #F4F6F9;
+            --bg-card: #FFFFFF;
+            --bg-elevated: #F8FAFC;
+            --border-card: #E2E8F0;
+            --border-elevated: #CBD5E1;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --accent: #2563EB;
+            --accent-hover: #1D4ED8;
+            --card-shadow: 0 2px 10px rgba(16, 24, 40, 0.04);
+        }
+        body.dark-mode {
+            --bg-app: #090A0F;
+            --bg-card: #12151E;
+            --bg-elevated: #181C28;
+            --border-card: #222736;
+            --border-elevated: #2A3042;
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --accent: #2563EB;
+            --accent-hover: #1D4ED8;
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        h1, h2, h3, .font-display { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .v-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+        }
+        .v-elevated {
+            background-color: var(--bg-elevated);
+            border: 1px solid var(--border-elevated);
+        }
+        .v-input {
+            background-color: var(--bg-elevated);
+            border: 1px solid var(--border-elevated);
+            color: var(--text-main);
+        }
+        .v-input:focus {
+            outline: none;
+            border-color: #2563EB;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+        }
+        .nav-btn { transition: all 0.15s ease; color: var(--text-muted); }
+        .nav-btn:hover:not(.active) { background-color: var(--bg-elevated); color: var(--text-main); }
+        .nav-btn.active { background-color: #2563EB; color: #FFFFFF; font-weight: 600; }
+        .pill-btn {
+            transition: all 0.15s ease;
+            border: 1px solid var(--border-elevated);
+            background: var(--bg-elevated);
+            color: var(--text-muted);
+        }
+        .pill-btn:hover { border-color: #2563EB; color: var(--text-main); }
+        .pill-btn.selected {
+            background: #2563EB;
+            color: #FFFFFF;
+            border-color: #2563EB;
+            font-weight: 600;
+        }
+        .store-mini-card {
+            border: 1px solid var(--border-elevated);
+            background: var(--bg-elevated);
+            transition: all 0.15s ease;
+        }
+        .store-mini-card.active {
+            border-color: #3B82F6;
+            box-shadow: 0 0 0 1px #3B82F6;
+        }
+        .day-pill {
+            border: 1px solid var(--border-elevated);
+            background: var(--bg-elevated);
+            color: var(--text-muted);
+            transition: all 0.15s ease;
+        }
+        .day-pill.active {
+            background: #2563EB;
+            color: #FFFFFF;
+            border-color: #2563EB;
+            font-weight: 700;
+        }
+        .drop-box { border: 1.5px dashed var(--border-elevated); background: var(--bg-elevated); transition: all 0.15s ease; }
+        .drop-box:hover { border-color: #2563EB; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: var(--border-elevated); border-radius: 99px; }
+    </style>
+</head>
+<body class="dark-mode min-h-screen p-3 md:p-4 flex flex-col md:flex-row gap-4">
+
+    <!-- Lock Screen Overlay (SHA-256) -->
+    <div id="lockScreen" class="fixed inset-0 z-50 bg-[#090A0F]/95 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="v-card p-8 max-w-sm w-full text-center space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-[#2563EB] text-white flex items-center justify-center mx-auto">
+                <i data-lucide="lock" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h2 class="text-lg font-bold">Acesso Restrito — Cantina Volpi</h2>
+                <p class="text-xs text-[var(--text-muted)] mt-1">Digite a senha configurada para liberar o painel.</p>
+            </div>
+            <input type="password" id="lockPasswordInput" onkeydown="if(event.key==='Enter') unlockPanel()" placeholder="Senha de acesso..." class="v-input w-full px-3.5 py-2.5 rounded-xl text-sm">
+            <button onclick="unlockPanel()" class="w-full py-2.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm transition">
+                Desbloquear Painel
+            </button>
+            <p id="lockError" class="text-xs text-[#E11D48] font-medium hidden">Senha incorreta.</p>
+        </div>
+    </div>
+
+    <!-- Barra Lateral Esquerda (240px) -->
+    <aside class="w-full md:w-60 v-card flex flex-col justify-between shrink-0 md:h-[calc(100vh-2rem)] md:sticky md:top-4">
+        <div>
+            <div class="p-5 flex items-center gap-3 border-b border-[var(--border-card)]">
+                <div class="w-9 h-9 rounded-full bg-[#2563EB] flex items-center justify-center text-white shrink-0">
+                    <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-display font-bold text-sm tracking-tight truncate">Cantina Volpi</div>
+                    <div class="text-[11px] text-[var(--text-muted)] truncate">Gestão de Compras</div>
+                </div>
+            </div>
+
+            <div class="px-3 py-4 space-y-1">
+                <div class="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Menu</div>
+                <button onclick="switchView('hortifruti')" id="nav-hortifruti" class="nav-btn active w-full px-3 py-2.5 rounded-xl text-left text-xs flex items-center gap-2.5">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span>Hortifrúti &amp; Cotações</span>
+                </button>
+                <button onclick="switchView('auditoria')" id="nav-auditoria" class="nav-btn w-full px-3 py-2.5 rounded-xl text-left text-xs flex items-center gap-2.5">
+                    <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+                    <span>Auditoria VMarket</span>
+                </button>
+
+                <div class="px-3 pt-5 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Ajustes</div>
+                <button onclick="switchView('sinonimos')" id="nav-sinonimos" class="nav-btn w-full px-3 py-2.5 rounded-xl text-left text-xs flex items-center gap-2.5">
+                    <i data-lucide="shuffle" class="w-4 h-4"></i>
+                    <span>Sinônimos &amp; Regras</span>
+                </button>
+                <button onclick="switchView('senha')" id="nav-senha" class="nav-btn w-full px-3 py-2.5 rounded-xl text-left text-xs flex items-center gap-2.5">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                    <span>Acesso &amp; Senha</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Rodapé Sidebar: Seletor de Tema -->
+        <div class="p-4 border-t border-[var(--border-card)] flex items-center justify-between">
+            <span class="text-xs font-medium text-[var(--text-muted)]">Tema</span>
+            <div class="flex items-center gap-1 p-1 rounded-full v-elevated">
+                <button onclick="setTheme('dark')" id="btnThemeDark" title="Modo Escuro" class="w-7 h-7 rounded-full flex items-center justify-center bg-[#2563EB] text-white transition">
+                    <i data-lucide="moon" class="w-3.5 h-3.5"></i>
+                </button>
+                <button onclick="setTheme('light')" id="btnThemeLight" title="Modo Claro" class="w-7 h-7 rounded-full flex items-center justify-center text-[var(--text-muted)] transition">
+                    <i data-lucide="sun" class="w-3.5 h-3.5"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Área Principal -->
+    <div class="flex-1 flex flex-col min-w-0 space-y-4">
+
+        <!-- Topbar Superior -->
+        <header class="v-card px-5 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2.5">
+                <div class="flex items-center gap-1 rounded-full v-elevated px-2 py-1 text-xs font-semibold">
+                    <button onclick="shiftCycle(-7)" class="w-6 h-6 rounded-full hover:bg-white/10 flex items-center justify-center text-[var(--text-muted)]">
+                        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <span id="cycleLabel" class="px-2 font-display">Ciclo Semanal</span>
+                    <button onclick="shiftCycle(7)" class="w-6 h-6 rounded-full hover:bg-white/10 flex items-center justify-center text-[var(--text-muted)]">
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+
+                <button onclick="resetCycleToday()" class="px-3 py-1.5 rounded-full v-elevated text-xs font-medium hover:border-[#2563EB] transition">
+                    Semana Atual
+                </button>
+
+                <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-[var(--border-card)]">
+                    <input type="text" id="hfHolidayNote" oninput="generateHfOutputs()" placeholder="Aviso de Feriado..." class="v-input rounded-full px-3 py-1 text-xs w-44">
+                    <label class="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] cursor-pointer select-none">
+                        <input type="checkbox" id="hfAnteciparQuinta" onchange="recalculateAndRenderFeed()" class="rounded border-[var(--border-elevated)] text-[#2563EB]">
+                        <span>Antecipar Sex &rarr; Qui</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2.5">
+                <span id="headerItemsCounter" class="hidden sm:inline-flex text-xs font-semibold px-3 py-1 rounded-full bg-[#10B981] text-white">
+                    0 itens
+                </span>
+                <button onclick="focusQuickSearch()" title="Buscar" class="w-9 h-9 rounded-full v-elevated flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] transition">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                </button>
+                <button onclick="clearSession()" class="px-4 py-2 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold flex items-center gap-1.5 transition">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova Semana
+                </button>
+            </div>
+        </header>
+
+        <!-- =============================================================== -->
+        <!-- ABA 1: HORTIFRÚTI & COTAÇÕES (MERCURY + LINEAR + BENTO GRID)    -->
+        <!-- =============================================================== -->
+        <main id="view-hortifruti" class="space-y-4">
+
+            <!-- Barra de Ação Rápida (Gavetas Limpas) -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <button onclick="toggleDrawer('ocsDrawer')" id="btnToggleOcs" class="px-4 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold flex items-center gap-2 transition">
+                        <i data-lucide="clipboard-paste" class="w-4 h-4"></i> Colar OCs &amp; Planilhas
+                    </button>
+                    <button onclick="toggleDrawer('extraDrawer')" id="btnToggleExtra" class="px-4 py-2 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-xs font-semibold flex items-center gap-2 transition">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> + Item Extra Manual
+                    </button>
+                </div>
+                <span id="drawerStatusHint" class="text-xs text-[var(--text-muted)]">Cole as OCs para processar a semana.</span>
+            </div>
+
+            <!-- Gaveta 1: Colar OCs & Planilhas (Aberta automaticamente quando não há OCs) -->
+            <div id="ocsDrawer" class="v-card p-5 space-y-4">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="lg:col-span-2 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Colar OCs do VMarket (Grade + Exclusivos)</h3>
+                            <button onclick="loadHfExampleOc()" class="text-[11px] px-2.5 py-1 rounded-lg v-elevated font-semibold hover:border-[#2563EB] transition">
+                                Carregar Exemplo
+                            </button>
+                        </div>
+                        <textarea id="hfOcsInput" rows="4" oninput="parseAndRefreshHf()" placeholder="Cole aqui as OCs do VMarket (suporta múltiplas linhas ou linha única)..." class="v-input w-full rounded-xl p-3 text-xs font-mono"></textarea>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Planilhas Semanais</h3>
+                        <label class="drop-box rounded-xl p-2.5 flex items-center justify-between cursor-pointer">
+                            <input type="file" id="fileHfEmporio" accept=".xlsx,.xls" class="hidden" onchange="handleHfSheetUpload(event, 'Emporio Volpi')">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-[#10B981] shrink-0"></i>
+                                <span id="labelHfEmporio" class="text-xs font-medium truncate">Empório (.xlsx)</span>
+                            </div>
+                            <span id="badgeHfEmporio" class="text-[10px] px-2 py-0.5 rounded-full v-elevated font-semibold shrink-0">Pendente</span>
+                        </label>
+                        <label class="drop-box rounded-xl p-2.5 flex items-center justify-between cursor-pointer">
+                            <input type="file" id="fileHfOndina" accept=".xlsx,.xls" class="hidden" onchange="handleHfSheetUpload(event, 'Volpi Pizzaria Ondina')">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-[#2563EB] shrink-0"></i>
+                                <span id="labelHfOndina" class="text-xs font-medium truncate">Ondina (.xlsx)</span>
+                            </div>
+                            <span id="badgeHfOndina" class="text-[10px] px-2 py-0.5 rounded-full v-elevated font-semibold shrink-0">Pendente</span>
+                        </label>
+                        <div class="text-[11px] text-[var(--text-muted)] px-1">Paralela: automática 50% Qua / 50% Sex.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gaveta 2: + Item Extra Manual (Fechada por padrão) -->
+            <div id="extraDrawer" class="v-card p-5 space-y-3 hidden">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-[#10B981]">+ Adicionar Item Extra / Acréscimo Manual</h3>
+                    <span id="badgeHfManualExtras" class="text-[11px] px-2.5 py-0.5 rounded-full bg-[#10B981] text-white font-semibold">0 extras</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+                    <select id="hfExtraUnidade" class="v-input rounded-xl px-2.5 py-1.5 text-xs">
+                        <option value="Cantina Volpi Paralela">Cantina Volpi Paralela</option>
+                        <option value="Emporio Volpi">Emporio Volpi</option>
+                        <option value="Volpi Pizzaria Ondina">Volpi Pizzaria Ondina</option>
+                    </select>
+                    <select id="hfExtraForn" onchange="if(this.value==='OUTRO'){const c=prompt('Nome do fornecedor:');if(c){const o=new Option(c.toUpperCase(),c.toUpperCase(),true,true);this.add(o);}}" class="v-input rounded-xl px-2.5 py-1.5 text-xs">
+                        <option value="FRUVELE PLUS">FRUVELE PLUS</option>
+                        <option value="BIO HORTIFRUTI LTDA">BIO HORTIFRUTI LTDA</option>
+                        <option value="HORT & EXPRESSO">HORT &amp; EXPRESSO</option>
+                        <option value="LUIS DA BATATA">LUIS DA BATATA</option>
+                        <option value="ERVASAL MICROVERDES LTDA">ERVASAL MICROVERDES LTDA</option>
+                        <option value="OUTRO">+ Outro...</option>
+                    </select>
+                    <select id="hfExtraDia" class="v-input rounded-xl px-2.5 py-1.5 text-xs">
+                        <option value="Quarta-feira">Quarta-feira</option>
+                        <option value="Sexta-feira">Sexta-feira</option>
+                        <option value="Segunda-feira">Segunda-feira</option>
+                    </select>
+                    <input type="text" id="hfExtraProd" placeholder="Produto..." class="v-input col-span-2 lg:col-span-1 rounded-xl px-2.5 py-1.5 text-xs">
+                    <input type="number" step="0.1" id="hfExtraQtd" placeholder="Qtd" class="v-input rounded-xl px-2.5 py-1.5 text-xs">
+                    <select id="hfExtraUom" class="v-input rounded-xl px-2.5 py-1.5 text-xs">
+                        <option value="KG">KG</option><option value="UND">UND</option><option value="LT">LT</option><option value="MÇO">MÇO</option><option value="CX">CX</option>
+                    </select>
+                    <button onclick="addHfManualExtra()" class="rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-xs font-semibold px-3 py-1.5 transition">+ Incluir</button>
+                </div>
+                <div id="listHfManualExtras" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- Bento Grid Principal -->
+            <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+
+                <!-- COLUNAS PRINCIPAIS À ESQUERDA (8/12) -->
+                <div class="xl:col-span-8 space-y-5">
+
+                    <!-- Linha Superior: Card Hero + Card Destaque Sólido Violeta -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                        <!-- Card Hero (7/12) -->
+                        <div class="lg:col-span-7 v-card p-6 flex flex-col justify-between space-y-5">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <span class="text-xs font-semibold text-[var(--text-muted)]">Volume Consolidado da Semana</span>
+                                    <div class="mt-2 flex items-baseline gap-2">
+                                        <span id="heroVolume" class="text-4xl font-extrabold font-display tabular-nums tracking-tight">0</span>
+                                        <span class="text-sm font-semibold text-[var(--text-muted)]">kg / un</span>
+                                    </div>
+                                    <div class="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#10B981] text-white text-[11px] font-semibold">
+                                        <i data-lucide="check-circle-2" class="w-3 h-3"></i> 100% Conferido pela OC
+                                    </div>
+                                </div>
+                                <div class="w-11 h-11 rounded-2xl bg-[#10B981] text-white flex items-center justify-center shrink-0">
+                                    <i data-lucide="package-check" class="w-5 h-5"></i>
+                                </div>
+                            </div>
+
+                            <!-- Barra Segmentada em 3 Cores Fortes -->
+                            <div class="space-y-3">
+                                <div class="w-full h-2.5 rounded-full bg-[#181C28] overflow-hidden flex gap-0.5">
+                                    <div id="segBarEmporio" class="h-full bg-[#2563EB] transition-all duration-300" style="width: 34%"></div>
+                                    <div id="segBarOndina" class="h-full bg-[#7C3AED] transition-all duration-300" style="width: 33%"></div>
+                                    <div id="segBarParalela" class="h-full bg-[#10B981] transition-all duration-300" style="width: 33%"></div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-xs">
+                                    <div>
+                                        <div class="flex items-center gap-1.5 text-[var(--text-muted)] text-[11px]">
+                                            <span class="w-2 h-2 rounded-full bg-[#2563EB]"></span> Empório Volpi
+                                        </div>
+                                        <div id="legEmporio" class="font-bold font-display tabular-nums mt-0.5">0 <span class="text-[11px] font-normal text-[var(--text-muted)]">0%</span></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-1.5 text-[var(--text-muted)] text-[11px]">
+                                            <span class="w-2 h-2 rounded-full bg-[#7C3AED]"></span> Ondina
+                                        </div>
+                                        <div id="legOndina" class="font-bold font-display tabular-nums mt-0.5">0 <span class="text-[11px] font-normal text-[var(--text-muted)]">0%</span></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-1.5 text-[var(--text-muted)] text-[11px]">
+                                            <span class="w-2 h-2 rounded-full bg-[#10B981]"></span> Paralela
+                                        </div>
+                                        <div id="legParalela" class="font-bold font-display tabular-nums mt-0.5">0 <span class="text-[11px] font-normal text-[var(--text-muted)]">0%</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Destaque Sólido Violeta (5/12) -->
+                        <div class="lg:col-span-5 v-card p-5 flex flex-col justify-between space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold">Vencedores da Grade</span>
+                                <span id="gradeStatusPill" class="text-[11px] px-2.5 py-0.5 rounded-full bg-[#2563EB] text-white font-semibold tabular-nums">0/6</span>
+                            </div>
+
+                            <!-- Bloco Sólido Violeta (#7C3AED, SEM gradiente) -->
+                            <div class="rounded-2xl p-4 bg-[#7C3AED] text-white space-y-3">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-semibold">Cotação Hortifrúti</span>
+                                    <span class="px-2 py-0.5 rounded-full bg-black/25 text-[10px] font-semibold">OC Teto Oficial</span>
+                                </div>
+                                <div id="gradientCardSummary" class="text-xs font-medium leading-relaxed min-h-[44px]">
+                                    Cole as OCs para visualizar os vencedores da Grade.
+                                </div>
+                                <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-white/20">
+                                    <span>Exclusivos: Fruvele Plus</span>
+                                    <span id="gradientExclCount" class="font-bold tabular-nums">0 itens</span>
+                                </div>
+                            </div>
+
+                            <!-- 3 Mini-Cards Selecionáveis -->
+                            <div class="grid grid-cols-3 gap-2">
+                                <button onclick="toggleFocusStore('Cantina Volpi Paralela')" id="miniStore-Paralela" class="store-mini-card rounded-xl p-2 text-center">
+                                    <div class="text-[10px] text-[var(--text-muted)] font-medium">Paralela</div>
+                                    <div id="miniCount-Paralela" class="text-xs font-bold font-display tabular-nums mt-0.5">0 it</div>
+                                </button>
+                                <button onclick="toggleFocusStore('Emporio Volpi')" id="miniStore-Emporio" class="store-mini-card rounded-xl p-2 text-center">
+                                    <div class="text-[10px] text-[var(--text-muted)] font-medium">Empório</div>
+                                    <div id="miniCount-Emporio" class="text-xs font-bold font-display tabular-nums mt-0.5">0 it</div>
+                                </button>
+                                <button onclick="toggleFocusStore('Volpi Pizzaria Ondina')" id="miniStore-Ondina" class="store-mini-card rounded-xl p-2 text-center">
+                                    <div class="text-[10px] text-[var(--text-muted)] font-medium">Ondina</div>
+                                    <div id="miniCount-Ondina" class="text-xs font-bold font-display tabular-nums mt-0.5">0 it</div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card Interativo: Vencedores da Grade (Pills) -->
+                    <div id="gradeWinnersCard" class="v-card p-5 space-y-2 hidden">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider">Definir Vencedores da Grade (Cotação)</span>
+                            <span id="gradePendingBadge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#D97706] text-white hidden"></span>
+                        </div>
+                        <div id="gradeWinnersList" class="divide-y divide-[var(--border-card)]"></div>
+                    </div>
+
+                    <!-- Itens fora do catálogo -->
+                    <div id="unclassifiedCard" class="v-card p-5 border-l-4 border-l-[#F59E0B] hidden">
+                        <div class="text-xs font-bold text-[#F59E0B] mb-2">Itens fora do catálogo oficial — Selecione o Fornecedor</div>
+                        <div id="unclassifiedList" class="space-y-2"></div>
+                    </div>
+
+                    <!-- Linha Inferior: Gráfico Donut SVG + Barra de Proporção -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <!-- Donut SVG -->
+                        <div class="v-card p-5 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold">Itens por Fornecedor</h3>
+                                <div class="w-8 h-8 rounded-xl bg-[#2563EB] text-white flex items-center justify-center">
+                                    <i data-lucide="pie-chart" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-center py-2">
+                                <div class="relative w-40 h-40">
+                                    <svg id="supplierDonutSvg" viewBox="0 0 120 120" class="w-full h-full -rotate-90"></svg>
+                                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                        <span class="text-[10px] text-[var(--text-muted)]">Total Itens</span>
+                                        <span id="donutTotalLabel" class="text-lg font-extrabold font-display tabular-nums">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="supplierDonutLegend" class="space-y-1.5 text-xs"></div>
+                        </div>
+
+                        <!-- Grade vs Exclusivos -->
+                        <div class="v-card p-5 flex flex-col justify-between space-y-4">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h3 class="text-sm font-bold">Grade vs Exclusivos</h3>
+                                    <p class="text-xs text-[var(--text-muted)] mt-0.5">Proporção de itens na semana</p>
+                                </div>
+                                <div class="w-8 h-8 rounded-xl bg-[#7C3AED] text-white flex items-center justify-center">
+                                    <i data-lucide="layers" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex items-baseline gap-2 mb-2">
+                                    <span id="propGradePct" class="text-2xl font-extrabold font-display tabular-nums">0%</span>
+                                    <span class="text-xs text-[var(--text-muted)]">itens de Grade</span>
+                                </div>
+                                <div class="w-full h-2.5 rounded-full bg-[#181C28] overflow-hidden">
+                                    <div id="propGradeBar" class="h-full bg-[#E11D48] transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                                <div class="flex justify-between text-[10px] text-[var(--text-muted)] mt-1">
+                                    <span>0%</span><span>50%</span><span>100%</span>
+                                </div>
+                            </div>
+                            <button onclick="toggleConfTable()" class="w-full py-2.5 rounded-xl v-elevated text-xs font-semibold hover:border-[#2563EB] transition flex items-center justify-center gap-2">
+                                <i data-lucide="table-2" class="w-3.5 h-3.5"></i>
+                                <span>Abrir Conferência &amp; Ajuste Fino</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Conferência Expansível -->
+                    <div id="confTableWrapper" class="v-card overflow-hidden hidden">
+                        <div class="px-5 py-3 v-elevated border-b border-[var(--border-card)] flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider">Conferência OC &times; Planilha (Editável)</span>
+                            <button onclick="toggleConfTable()" class="text-xs text-[var(--text-muted)] hover:text-[var(--text-main)]">Fechar</button>
+                        </div>
+                        <div class="overflow-x-auto max-h-80">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead class="v-elevated text-[var(--text-muted)] border-b border-[var(--border-card)] sticky top-0">
+                                    <tr>
+                                        <th class="p-3 font-semibold">Unidade</th>
+                                        <th class="p-3 font-semibold">Fornecedor</th>
+                                        <th class="p-3 font-semibold">Produto</th>
+                                        <th class="p-3 font-semibold text-right">OC</th>
+                                        <th class="p-3 font-semibold text-right">Planilha</th>
+                                        <th class="p-3 font-semibold text-center">Embalagem</th>
+                                        <th class="p-3 font-semibold text-center">Qua / Sex(Qui) / Seg</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hfConfBody" class="divide-y divide-[var(--border-card)]"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUNA DIREITA VERTICAL: PROGRAMAÇÃO DE ENTREGAS (4/12) -->
+                <div class="xl:col-span-4 v-card p-5 flex flex-col space-y-4 xl:sticky xl:top-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold">Programação de Entregas</h3>
+                            <div id="feedHeaderCount" class="text-2xl font-extrabold font-display tabular-nums mt-1">0 itens</div>
+                            <p id="feedHeaderSub" class="text-[11px] text-[var(--text-muted)]">Selecione o dia abaixo</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-2xl bg-[#7C3AED] text-white flex items-center justify-center">
+                            <i data-lucide="calendar" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+
+                    <!-- Pílulas de Dias -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="selectFeedDay('Quarta-feira')" id="dayPill-Quarta" class="day-pill active rounded-xl py-2 text-center">
+                            <div class="text-xs">Qua</div>
+                            <div id="dayDot-Quarta" class="text-[10px] opacity-85">•</div>
+                        </button>
+                        <button onclick="selectFeedDay('SECOND')" id="dayPill-Second" class="day-pill rounded-xl py-2 text-center">
+                            <div id="dayPillLabel-Second" class="text-xs">Sex</div>
+                            <div id="dayDot-Second" class="text-[10px] opacity-85">•</div>
+                        </button>
+                        <button onclick="selectFeedDay('Segunda-feira')" id="dayPill-Segunda" class="day-pill rounded-xl py-2 text-center">
+                            <div class="text-xs">Seg</div>
+                            <div id="dayDot-Segunda" class="text-[10px] opacity-85">•</div>
+                        </button>
+                    </div>
+
+                    <!-- Lista Limpa dos Itens Programados (Editável Inline) -->
+                    <div id="deliveryFeedList" class="divide-y divide-[var(--border-card)] max-h-[500px] overflow-y-auto pr-1">
+                        <div class="py-10 text-center text-xs text-[var(--text-muted)]">Nenhum item programado para este dia.</div>
+                    </div>
+
+                    <!-- Botão Rápido + Mini-linha Inline para Adicionar Item neste Dia -->
+                    <div class="pt-2 border-t border-[var(--border-card)] space-y-2">
+                        <button onclick="toggleFeedAddRow()" class="w-full py-2 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> + Adicionar Item neste Dia
+                        </button>
+                        <div id="feedAddRow" class="hidden v-elevated p-3 rounded-xl space-y-2">
+                            <div class="grid grid-cols-2 gap-1.5">
+                                <select id="feedAddUnidade" class="v-input rounded-lg px-2 py-1 text-[11px]">
+                                    <option value="Cantina Volpi Paralela">Paralela</option>
+                                    <option value="Emporio Volpi">Empório</option>
+                                    <option value="Volpi Pizzaria Ondina">Ondina</option>
+                                </select>
+                                <select id="feedAddForn" class="v-input rounded-lg px-2 py-1 text-[11px]">
+                                    <option value="FRUVELE PLUS">FRUVELE PLUS</option>
+                                    <option value="BIO HORTIFRUTI LTDA">BIO HORTIFRUTI</option>
+                                    <option value="HORT & EXPRESSO">HORT &amp; EXPRESSO</option>
+                                    <option value="LUIS DA BATATA">LUIS DA BATATA</option>
+                                    <option value="ERVASAL MICROVERDES LTDA">ERVASAL</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-12 gap-1.5">
+                                <input type="text" id="feedAddProd" placeholder="Produto..." class="v-input col-span-6 rounded-lg px-2 py-1 text-[11px]">
+                                <input type="number" step="0.1" id="feedAddQtd" placeholder="Qtd" class="v-input col-span-3 rounded-lg px-2 py-1 text-[11px]">
+                                <select id="feedAddUom" class="v-input col-span-3 rounded-lg px-1.5 py-1 text-[11px]">
+                                    <option value="KG">KG</option><option value="UND">UND</option><option value="LT">LT</option><option value="MÇO">MÇO</option><option value="CX">CX</option>
+                                </select>
+                            </div>
+                            <button onclick="addFeedDayItem()" class="w-full py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[11px] font-semibold transition">
+                                Confirmar neste Dia
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção Final: Disparo WhatsApp -->
+            <div id="hfOutputsWrapper" class="space-y-5 pt-2 hidden">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-bold">Disparo WhatsApp — Mensagens por Fornecedor</h2>
+                        <button onclick="copyAllHfMessages()" class="px-4 py-1.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition">
+                            Copiar Todas
+                        </button>
+                    </div>
+                    <div id="hfMessagesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+
+                <div>
+                    <h2 class="text-sm font-bold mb-3">Checklist de Recebimento por Loja (Estoquistas)</h2>
+                    <div id="hfChecklistContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- =============================================================== -->
+        <!-- ABA 2: AUDITORIA VMARKET (MERCURY + LINEAR + BENTO GRID)        -->
+        <!-- =============================================================== -->
+        <main id="view-auditoria" class="space-y-4 hidden">
+            <!-- Barra Superior de Ações -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <button onclick="toggleDrawer('auditUploadDrawer')" class="px-4 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold flex items-center gap-2 transition">
+                        <i data-lucide="folder-up" class="w-4 h-4"></i> Importar Arquivos VMarket
+                    </button>
+                    <button onclick="toggleDrawer('auditExtraDrawer')" class="px-4 py-2 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-xs font-semibold flex items-center gap-2 transition">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> + Extra WhatsApp / Zapia
+                    </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="exportAuditExcel()" id="btnExportExcel" disabled class="px-4 py-2 rounded-xl bg-[#10B981] hover:bg-[#059669] disabled:opacity-40 text-white text-xs font-semibold transition">
+                        Exportar Excel
+                    </button>
+                    <button onclick="copyAuditWhatsApp()" id="btnCopyWpp" disabled class="px-4 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-40 text-white text-xs font-semibold transition">
+                        Copiar Resumo WhatsApp
+                    </button>
+                </div>
+            </div>
+
+            <!-- Gaveta 1: 4 Cards de Upload (Recolhe automaticamente após carregar) -->
+            <div id="auditUploadDrawer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <label class="v-card drop-box p-4 cursor-pointer flex flex-col justify-between">
+                    <input type="file" id="fileLinksHtml" accept=".html,.htm" multiple class="hidden" onchange="handleLinksUpload(event)">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-bold uppercase text-[#F59E0B]">1. Links das Lojas</span>
+                        <span id="badgeLinks" class="text-[10px] px-2 py-0.5 rounded-full bg-[#D97706] text-white font-semibold">0/3</span>
+                    </div>
+                    <div id="labelLinksHtml" class="text-xs font-medium truncate">HTMLs das 3 lojas</div>
+                </label>
+
+                <label class="v-card drop-box p-4 cursor-pointer flex flex-col justify-between">
+                    <input type="file" id="filePedidosXls" accept=".xls,.xlsx,.html" class="hidden" onchange="handlePedidosUpload(event)">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-bold uppercase text-[#3B82F6]">2. Pedidos Realizados</span>
+                        <span id="badgePedidos" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2563EB] text-white font-semibold">Opcional</span>
+                    </div>
+                    <div id="labelPedidosXls" class="text-xs font-medium truncate">Planilha (.xls/.xlsx)</div>
+                </label>
+
+                <label class="v-card drop-box p-4 cursor-pointer flex flex-col justify-between">
+                    <input type="file" id="fileNaoComprados" accept=".csv,.xls,.xlsx,.html" class="hidden" onchange="handleNaoCompradosUpload(event)">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-bold uppercase text-[#E11D48]">3. Não Comprados</span>
+                        <span id="badgeNaoComprados" class="text-[10px] px-2 py-0.5 rounded-full bg-[#E11D48] text-white font-semibold">Opcional</span>
+                    </div>
+                    <div id="labelNaoComprados" class="text-xs font-medium truncate">Relatório de não comprados</div>
+                </label>
+
+                <label class="v-card drop-box p-4 cursor-pointer flex flex-col justify-between">
+                    <input type="file" id="fileExclusivosHtml" accept=".html,.htm" class="hidden" onchange="handleExclusivosUpload(event)">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-bold uppercase text-[#7C3AED]">4. Exclusivos</span>
+                        <span id="badgeExclusivos" class="text-[10px] px-2 py-0.5 rounded-full bg-[#7C3AED] text-white font-semibold">Opcional</span>
+                    </div>
+                    <div id="labelExclusivosHtml" class="text-xs font-medium truncate">HTML de Exclusivos</div>
+                </label>
+            </div>
+
+            <!-- Gaveta 2: + Extra WhatsApp / Zapia (Fechada por padrão) -->
+            <div id="auditExtraDrawer" class="v-card p-4 space-y-3 hidden">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-[#10B981]">+ Extra WhatsApp / Zapia (Quinta/Sexta)</h3>
+                    <span id="badgeExtrasWpp" class="text-[11px] px-2.5 py-0.5 rounded-full bg-[#10B981] text-white font-semibold">0 registros</span>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-7 gap-2">
+                    <select id="extraUnidade" class="v-input rounded-xl px-2.5 py-1.5 text-xs">
+                        <option value="Emporio Volpi">Emporio Volpi</option>
+                        <option value="Volpi Pizzaria Ondina">Volpi Pizzaria Ondina</option>
+                        <option value="Cantina Volpi Paralela">Cantina Volpi Paralela</option>
+                    </select>
+                    <select id="extraDia" class="v-input rounded-xl px-2.5 py-1.5 text-xs">
+                        <option value="Quinta-feira">Quinta-feira</option>
+                        <option value="Sexta-feira">Sexta-feira</option>
+                    </select>
+                    <input type="text" id="extraProduto" placeholder="Produto..." class="v-input col-span-2 rounded-xl px-2.5 py-1.5 text-xs">
+                    <input type="number" step="0.01" id="extraQtd" placeholder="Qtd" class="v-input rounded-xl px-2.5 py-1.5 text-xs">
+                    <select id="extraUom" class="v-input rounded-xl px-2.5 py-1.5 text-xs">
+                        <option value="UND">UND</option><option value="CX">CX</option><option value="KG">KG</option><option value="FD">FD</option><option value="LT">LT</option>
+                    </select>
+                    <button onclick="addExtraWpp()" class="rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-xs font-semibold px-3 py-1.5 transition">+ Adicionar</button>
+                </div>
+                <div id="listExtrasWpp" class="space-y-1 text-xs"></div>
+            </div>
+
+            <div id="integrityAlertsContainer" class="space-y-2"></div>
+
+            <!-- Bento Grid de Métricas da Auditoria (12 colunas) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Card Hero (5 colunas) -->
+                <div class="lg:col-span-5 v-card p-5 flex flex-col justify-between space-y-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span class="text-xs font-semibold text-[var(--text-muted)]">Atendimento dos Pedidos (Links)</span>
+                            <div class="mt-1.5 flex items-baseline gap-2">
+                                <span id="auditHeroPct" class="text-3xl font-extrabold font-display tabular-nums">0%</span>
+                                <span class="text-xs font-semibold text-[var(--text-muted)]">atendido</span>
+                            </div>
+                            <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#10B981] text-white text-[10px] font-semibold">
+                                <i data-lucide="check-circle-2" class="w-3 h-3"></i> Conferido
+                            </div>
+                        </div>
+                        <div class="w-10 h-10 rounded-2xl bg-[#10B981] text-white flex items-center justify-center shrink-0">
+                            <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="w-full h-2.5 rounded-full bg-[#181C28] overflow-hidden flex gap-0.5">
+                            <div id="auditBarEmp" class="h-full bg-[#2563EB] transition-all duration-300" style="width: 34%"></div>
+                            <div id="auditBarOnd" class="h-full bg-[#7C3AED] transition-all duration-300" style="width: 33%"></div>
+                            <div id="auditBarPar" class="h-full bg-[#10B981] transition-all duration-300" style="width: 33%"></div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-[11px]">
+                            <div><span class="inline-block w-2 h-2 rounded-full bg-[#2563EB] mr-1"></span>Empório <strong id="auditLegEmp" class="tabular-nums">0</strong></div>
+                            <div><span class="inline-block w-2 h-2 rounded-full bg-[#7C3AED] mr-1"></span>Ondina <strong id="auditLegOnd" class="tabular-nums">0</strong></div>
+                            <div><span class="inline-block w-2 h-2 rounded-full bg-[#10B981] mr-1"></span>Paralela <strong id="auditLegPar" class="tabular-nums">0</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card Destaque Sólido Violeta (4 colunas) -->
+                <div class="lg:col-span-4 v-card p-5 flex flex-col justify-between space-y-3">
+                    <div class="rounded-2xl p-4 bg-[#7C3AED] text-white space-y-2">
+                        <div class="text-xs font-semibold opacity-90">Resumo da Auditoria</div>
+                        <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                            <div>
+                                <div id="auditVioletOk" class="text-lg font-extrabold font-display tabular-nums">0</div>
+                                <div class="text-[10px] opacity-85">OK</div>
+                            </div>
+                            <div>
+                                <div id="auditVioletAj" class="text-lg font-extrabold font-display tabular-nums">0</div>
+                                <div class="text-[10px] opacity-85">Ajustados</div>
+                            </div>
+                            <div>
+                                <div id="auditVioletNc" class="text-lg font-extrabold font-display tabular-nums">0</div>
+                                <div class="text-[10px] opacity-85">Não Comp.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="toggleAuditStoreFilter('Cantina Volpi Paralela')" id="auditStore-Paralela" class="store-mini-card rounded-xl p-2 text-center">
+                            <div class="text-[10px] text-[var(--text-muted)]">Paralela</div>
+                            <div id="auditCnt-Paralela" class="text-xs font-bold font-display tabular-nums">0 it</div>
+                        </button>
+                        <button onclick="toggleAuditStoreFilter('Emporio Volpi')" id="auditStore-Emporio" class="store-mini-card rounded-xl p-2 text-center">
+                            <div class="text-[10px] text-[var(--text-muted)]">Empório</div>
+                            <div id="auditCnt-Emporio" class="text-xs font-bold font-display tabular-nums">0 it</div>
+                        </button>
+                        <button onclick="toggleAuditStoreFilter('Volpi Pizzaria Ondina')" id="auditStore-Ondina" class="store-mini-card rounded-xl p-2 text-center">
+                            <div class="text-[10px] text-[var(--text-muted)]">Ondina</div>
+                            <div id="auditCnt-Ondina" class="text-xs font-bold font-display tabular-nums">0 it</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Card Gráfico Donut SVG (3 colunas) -->
+                <div class="lg:col-span-3 v-card p-5 flex flex-col justify-between space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div class="relative w-24 h-24 shrink-0">
+                            <svg id="auditDonutSvg" viewBox="0 0 120 120" class="w-full h-full -rotate-90"></svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                <span class="text-[9px] text-[var(--text-muted)]">Total</span>
+                                <span id="auditDonutTotal" class="text-sm font-extrabold font-display tabular-nums">0</span>
+                            </div>
+                        </div>
+                        <div id="auditDonutLegend" class="flex-1 space-y-1 text-[11px]"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5 Pílulas Limpas & Busca -->
+            <div class="v-card p-4 flex flex-wrap items-center justify-between gap-3">
+                <div id="auditFilterPills" class="flex flex-wrap gap-1.5">
+                    <button onclick="setAuditFilter('TODOS', this)" class="pill-btn selected px-3.5 py-1.5 rounded-full text-xs">Todos</button>
+                    <button onclick="setAuditFilter('OK', this)" class="pill-btn px-3.5 py-1.5 rounded-full text-xs">OK</button>
+                    <button onclick="setAuditFilter('AJUSTADO', this)" class="pill-btn px-3.5 py-1.5 rounded-full text-xs">Ajustados</button>
+                    <button onclick="setAuditFilter('NAO_COMPRADO_ALL', this)" class="pill-btn px-3.5 py-1.5 rounded-full text-xs">Não Comprados</button>
+                    <button onclick="setAuditFilter('EXTRA', this)" class="pill-btn px-3.5 py-1.5 rounded-full text-xs">Extras</button>
+                </div>
+                <input type="text" id="filterSearch" oninput="renderAuditTable()" placeholder="Buscar produto..." class="v-input rounded-full px-3.5 py-1.5 text-xs w-52">
+            </div>
+
+            <!-- Tabela Simplificada -->
+            <div class="v-card overflow-hidden">
+                <div class="overflow-x-auto max-h-[520px]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="v-elevated text-[var(--text-muted)] border-b border-[var(--border-card)] sticky top-0">
+                            <tr>
+                                <th class="p-3 font-semibold">Unidade</th>
+                                <th class="p-3 font-semibold">Produto</th>
+                                <th class="p-3 font-semibold text-center">Medida</th>
+                                <th class="p-3 font-semibold text-right">Pedido (Link)</th>
+                                <th class="p-3 font-semibold text-right">Comprado</th>
+                                <th class="p-3 font-semibold text-center">Status</th>
+                                <th class="p-3 font-semibold min-w-[230px]">Motivo / Justificativa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditTableBody" class="divide-y divide-[var(--border-card)]">
+                            <tr><td colspan="7" class="p-8 text-center text-[var(--text-muted)]">Importe os arquivos do VMarket acima para iniciar a auditoria.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- =============================================================== -->
+        <!-- ABA 3: SINÔNIMOS & REGRAS                                       -->
+        <!-- =============================================================== -->
+        <main id="view-sinonimos" class="max-w-4xl space-y-5 hidden">
+            <div class="v-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-sm font-bold">Dicionário de Sinônimos (De &rarr; Para)</h2>
+                        <p class="text-xs text-[var(--text-muted)]">Padroniza nomes entre VMarket e Planilhas. Um por linha: <code>ORIGEM = DESTINO</code></p>
+                    </div>
+                    <button onclick="saveSynonyms()" class="px-4 py-2 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition">
+                        Aplicar Sinônimos
+                    </button>
+                </div>
+                <textarea id="synonymsEditor" rows="10" class="v-input w-full rounded-xl p-3 text-xs font-mono"></textarea>
+            </div>
+        </main>
+
+        <!-- =============================================================== -->
+        <!-- ABA 4: ACESSO & SENHA                                           -->
+        <!-- =============================================================== -->
+        <main id="view-senha" class="max-w-4xl space-y-5 hidden">
+            <div class="v-card p-6 space-y-4">
+                <div>
+                    <h2 class="text-sm font-bold">Proteção por Senha (SHA-256 Local)</h2>
+                    <p class="text-xs text-[var(--text-muted)]">Ideal para hospedagem privada (GitHub Pages / Cloudflare Pages). Armazenada apenas como hash SHA-256.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <input type="password" id="cfgPasswordInput" placeholder="Nova senha de acesso..." class="v-input flex-1 min-w-[200px] rounded-xl px-3.5 py-2 text-xs">
+                    <button onclick="savePasswordConfig()" class="px-4 py-2 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition">
+                        Ativar / Alterar Senha
+                    </button>
+                    <button onclick="disablePasswordConfig()" class="px-4 py-2 rounded-full bg-[#E11D48] hover:bg-[#BE123C] text-white text-xs font-semibold transition">
+                        Desativar Senha
+                    </button>
+                </div>
+                <div id="cfgPasswordStatus" class="text-xs"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden px-4 py-2.5 rounded-full bg-[#2563EB] text-white text-xs font-semibold shadow-xl"></div>
+
+    <script>
+        // =====================================================================
+        // CONFIGURAÇÕES, TEMA, SENHA SHA-256 & CATÁLOGO
+        // =====================================================================
+        const STORAGE_PWD_KEY = 'volpi_v3_pwd_sha256';
+        const DEFAULT_SYNONYMS = [
+            "LARANJA NAVELINA = LARANJA BAHIA",
+            "LARANJA NAVELINA (BAHIA) = LARANJA BAHIA",
+            "TANGERINA MEXIRICA = TANGIRINA",
+            "LIMAO TAHIT = LIMAO TAHITI",
+            "TOMATE MOLHO = TOMATE RASTEIRO MOLHO",
+            "TOMATE RASTEIRO (MOLHO) = TOMATE RASTEIRO MOLHO",
+            "ALHO PORO = ALHO-PORO",
+            "ALHO-PORO = ALHO PORO",
+            "ALFACE FRISEE = ALFACE FRISEE",
+            "SHITAKE = COGUMELO SHITAKE",
+            "RUCULA HIDROPONICA = RUCULA"
+        ];
+
+        const JUSTIFICATIVA_OPTIONS = [
+            "", "Cotação própria de Hortifrúti", "Arredondamento caixa/fardo",
+            "Comprado em outro fornecedor", "Programado para amanhã / próximo dia",
+            "Pedido extra WhatsApp (Qui/Sex)", "Corte por estoque/indisponibilidade"
+        ];
+
+        const HORTIFRUTI_KEYWORDS = ['BATATA', 'CEBOLA', 'CENOURA', 'TOMATE', 'LIMAO', 'LARANJA', 'ABACAXI', 'ALFACE', 'RUCULA', 'ALHO', 'BANANA', 'SHITAKE', 'COGUMELO', 'TANGERINA', 'TANGIRINA', 'ABOBRINHA', 'ABOBORA', 'ALECRIM', 'SUCO DE LARANJA'];
+        const GRADE_ORDER = ['BATATA IN NATURA', 'CEBOLA', 'CENOURA', 'LIMAO TAHITI', 'TOMATE SALADA B6', 'TOMATE RASTEIRO MOLHO'];
+        const GRADE_PILLS = ['FRUVELE PLUS', 'BIO HORTIFRUTI LTDA', 'HORT & EXPRESSO', 'LUIS DA BATATA'];
+        const EXCLUDED_MUSHROOMS = ['SHIMEJI BRANCO 200G', 'SHIMEJI BRANCO 2KG', 'SHIMEJI PRETO 200G', 'SHITAKE 200G'];
+
+        const FRUVELE_EXCLUSIVOS = [
+            "ABACATE", "ABACAXI GRAUDO", "ABOBORA JAPONESA", "ABOBRINHA", "ACELGA", "AGRIAO HIGIENIZADO",
+            "AIPIM", "AIPO ( SALSAO )", "AIPO (SALSAO)", "ALECRIM FRESCO", "ALFACE AMERICANA",
+            "ALFACE AMERICANO HIGIENIZADO", "ALFACE CRESPA", "ALFACE FRISEE", "ALFACE FRISEE EMBANDEJADO",
+            "ALFACE ROXA", "ALFACE ROXO HIGIENIZADO",
+            "ALHO DESC. HIGIENIZADO", "ALHO IN NATURA", "ALHO PORO", "ALHO-PORO", "AMENDOIM",
+            "AVEIA EM GRAO", "BANANA PRATA", "BANANA TERRA", "BATATA BOLINHA", "BATATA DOCE",
+            "BERINGELA COMUM", "BETERRABA", "BROCOLIS IN NATURA ( NINJA )", "BROCOLIS IN NATURA (NINJA)",
+            "BROTO DE AGRIAO", "CAJU", "CAMARAO SECO", "CANELA EM PAU", "CEBOLA ROXA", "CEBOLETE",
+            "CEBOLINHA", "COCO SECO", "COENTRO", "COGUMELO PARIS", "COUVE FLOR IN NATURA", "COUVE FOLHA",
+            "EDAMEME", "ENDRO IN NATURA", "ERVILHA FRESCA", "ESPINAFRE IN NATURA", "FIGO", "GENGIBRE",
+            "HORTELA FINO", "HORTELA GROSSO", "JABUTICABA", "KIWI", "LARANJA", "LARANJA NAVELINA",
+            "LARANJA BAHIA", "LARANJA PERA", "LIMAO DESIDRATADO", "LIMAO SICILIANO", "MACA VERDE",
+            "MACA VERMELHA", "MAMAO", "MANDIOQUINHA", "MANGA PALMER", "MANGA TOMMY", "MANJERICAO",
+            "MARACUJA", "MIRTILO FRESCO", "MORANGO", "PEPINO JAPONES", "PEPINO", "PERA",
+            "PIMENTA DEDO DE MOCA", "PIMENTA FUNCIONARIO", "PIMENTAO AMARELO", "PIMENTAO",
+            "PIMENTAO VERMELHO", "PORTO BELLO", "QUIABO", "REPOLHO BRANCO", "REPOLHO ROXO", "ROMA",
+            "RUCULA HIDROPONICA", "RUCULA", "SALSA", "SALSAO", "SALVIA", "SHIMEJI", "SHIMEJI PRETO",
+            "SHITAKE", "COGUMELO SHITAKE", "SIRIGUELA", "SUCO DE LARANJA PRONTO", "TANGERINA MEXIRICA",
+            "TANGIRINA", "TOMATE CEREJA", "TOMATE RAMA", "TOMILHO", "TORANJA", "UMBU", "UVA PRETA",
+            "UVA VERDE", "UVA VERDE (SEM CAROCO)"
+        ];
+
+        const CLOSED_PACKAGES = [
+            { match: ['BATATA IN NATURA'], size: 25, label: 'Saco 25kg' },
+            { match: ['CEBOLA'], size: 20, label: 'Saco 20kg' },
+            { match: ['CENOURA'], size: 20, label: 'Caixa/Saco 20kg' },
+            { match: ['LIMAO TAHITI', 'LIMAO TAHIT'], size: 20, label: 'Caixa 20kg' },
+            { match: ['TOMATE SALADA B6'], size: 25, label: 'Caixa 25kg' },
+            { match: ['TOMATE RASTEIRO MOLHO', 'TOMATE MOLHO'], size: 25, label: 'Caixa 25kg' },
+            { match: ['SUCO DE LARANJA PRONTO'], size: 5, label: 'Galão 5L' }
+        ];
+
+        const SUPPLIER_KEYWORD_MAP = [
+            { keys: ['FRUVELE'], target: 'FRUVELE PLUS' },
+            { keys: ['BIO HORTIFRUTI'], target: 'BIO HORTIFRUTI LTDA' },
+            { keys: ['HORT & EXPRESSO', 'HORT EXPRESSO'], target: 'HORT & EXPRESSO' },
+            { keys: ['LUIS DA BATATA'], target: 'LUIS DA BATATA' },
+            { keys: ['NIVIA'], target: 'NIVIA PINHEIRO DE AZEVEDO' },
+            { keys: ['FRUTCOM'], target: 'FRUTCOM EXPRESS' },
+            { keys: ['TYCHE'], target: 'TYCHE ALIMENTOS' },
+            { keys: ['SOST'], target: 'SOST' },
+            { keys: ['MORANGO SALVADOR'], target: 'MORANGO SALVADOR' },
+            { keys: ['ERVASAL'], target: 'ERVASAL MICROVERDES LTDA' }
+        ];
+
+        let state = {
+            cycleOffsetDays: 0,
+            synonymsMap: {},
+            hfSheets: { 'Emporio Volpi': [], 'Volpi Pizzaria Ondina': [] },
+            hfOcItems: [],
+            hfGradeWinners: {},
+            hfGradePerStoreMode: {},
+            hfUnclassifiedWinners: {},
+            hfManualExtras: [],
+            hfConferencia: [],
+            hfGeneratedTexts: [],
+            hfChecklistTexts: [],
+            focusedStore: null,
+            selectedFeedDay: 'Quarta-feira',
+            auditStatusFilter: 'TODOS',
+            auditFocusedStore: null,
+            linksByStore: {},
+            pedidosRaw: [],
+            pedidosRows: [],
+            naoCompradosRows: [],
+            exclusivosRows: [],
+            extrasWpp: [],
+            auditRows: [],
+            justificativas: {}
+        };
+
+        // Init
+        document.getElementById('synonymsEditor').value = DEFAULT_SYNONYMS.join('\n');
+        parseSynonymsEditor();
+        setTheme('dark');
+        checkLockOnLoad();
+        updatePasswordStatusUI();
+        updateCycleLabel();
+        if (window.lucide) lucide.createIcons();
+
+        function toggleDrawer(id) {
+            document.getElementById(id).classList.toggle('hidden');
+        }
+
+        function updateCycleLabel() {
+            const d = new Date();
+            d.setDate(d.getDate() + state.cycleOffsetDays);
+            document.getElementById('cycleLabel').textContent = `Semana ${d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
+        }
+        function shiftCycle(days) { state.cycleOffsetDays += days; updateCycleLabel(); }
+        function resetCycleToday() { state.cycleOffsetDays = 0; updateCycleLabel(); }
+        function focusQuickSearch() {
+            const isAud = !document.getElementById('view-auditoria').classList.contains('hidden');
+            if (isAud) document.getElementById('filterSearch').focus();
+            else {
+                document.getElementById('ocsDrawer').classList.remove('hidden');
+                document.getElementById('hfOcsInput').focus();
+            }
+        }
+
+        function setTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('dark-mode', isDark);
+            document.getElementById('btnThemeDark').className = isDark
+                ? 'w-7 h-7 rounded-full flex items-center justify-center bg-[#2563EB] text-white transition'
+                : 'w-7 h-7 rounded-full flex items-center justify-center text-[var(--text-muted)] transition';
+            document.getElementById('btnThemeLight').className = isDark
+                ? 'w-7 h-7 rounded-full flex items-center justify-center text-[var(--text-muted)] transition'
+                : 'w-7 h-7 rounded-full flex items-center justify-center bg-white text-[#F59E0B] shadow-sm transition';
+        }
+
+        async function sha256(str) {
+            const buf = new TextEncoder().encode(str);
+            const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+            return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        function checkLockOnLoad() {
+            if (localStorage.getItem(STORAGE_PWD_KEY)) document.getElementById('lockScreen').classList.remove('hidden');
+        }
+        async function unlockPanel() {
+            const hash = await sha256(document.getElementById('lockPasswordInput').value);
+            if (hash === localStorage.getItem(STORAGE_PWD_KEY)) {
+                document.getElementById('lockScreen').classList.add('hidden');
+                document.getElementById('lockError').classList.add('hidden');
+                document.getElementById('lockPasswordInput').value = '';
+            } else {
+                document.getElementById('lockError').classList.remove('hidden');
+            }
+        }
+        async function savePasswordConfig() {
+            const val = document.getElementById('cfgPasswordInput').value.trim();
+            if (!val) return showToast('Digite uma senha válida.', true);
+            localStorage.setItem(STORAGE_PWD_KEY, await sha256(val));
+            document.getElementById('cfgPasswordInput').value = '';
+            updatePasswordStatusUI();
+            showToast('Senha SHA-256 ativada!');
+        }
+        function disablePasswordConfig() {
+            localStorage.removeItem(STORAGE_PWD_KEY);
+            updatePasswordStatusUI();
+            showToast('Proteção por senha desativada.');
+        }
+        function updatePasswordStatusUI() {
+            const active = Boolean(localStorage.getItem(STORAGE_PWD_KEY));
+            document.getElementById('cfgPasswordStatus').innerHTML = active
+                ? '<span class="text-[#10B981] font-semibold">Senha SHA-256 ativa neste navegador.</span>'
+                : '<span class="text-[var(--text-muted)]">Nenhuma senha configurada (acesso livre).</span>';
+        }
+
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = `fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-full text-xs font-semibold shadow-xl ${isError ? 'bg-[#E11D48] text-white' : 'bg-[#2563EB] text-white'}`;
+            t.classList.remove('hidden');
+            setTimeout(() => t.classList.add('hidden'), 3200);
+        }
+
+        function switchView(view) {
+            ['hortifruti', 'auditoria', 'sinonimos', 'senha'].forEach(v => {
+                document.getElementById(`view-${v}`).classList.toggle('hidden', v !== view);
+                document.getElementById(`nav-${v}`).classList.toggle('active', v === view);
+            });
+        }
+
+        function clearSession() {
+            state.hfSheets = { 'Emporio Volpi': [], 'Volpi Pizzaria Ondina': [] };
+            state.hfOcItems = [];
+            state.hfGradeWinners = {};
+            state.hfGradePerStoreMode = {};
+            state.hfUnclassifiedWinners = {};
+            state.hfManualExtras = [];
+            state.hfConferencia = [];
+            state.hfGeneratedTexts = [];
+            state.hfChecklistTexts = [];
+            state.focusedStore = null;
+            state.auditFocusedStore = null;
+            state.linksByStore = {};
+            state.pedidosRaw = [];
+            state.pedidosRows = [];
+            state.naoCompradosRows = [];
+            state.exclusivosRows = [];
+            state.extrasWpp = [];
+            state.auditRows = [];
+            state.justificativas = {};
+
+            ['fileHfEmporio', 'fileHfOndina', 'fileLinksHtml', 'filePedidosXls', 'fileNaoComprados', 'fileExclusivosHtml'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            document.getElementById('hfOcsInput').value = '';
+            document.getElementById('hfHolidayNote').value = '';
+            document.getElementById('hfAnteciparQuinta').checked = false;
+
+            document.getElementById('badgeHfEmporio').textContent = 'Pendente';
+            document.getElementById('badgeHfEmporio').className = 'text-[10px] px-2 py-0.5 rounded-full v-elevated font-semibold shrink-0';
+            document.getElementById('labelHfEmporio').textContent = 'Empório (.xlsx)';
+            document.getElementById('badgeHfOndina').textContent = 'Pendente';
+            document.getElementById('badgeHfOndina').className = 'text-[10px] px-2 py-0.5 rounded-full v-elevated font-semibold shrink-0';
+            document.getElementById('labelHfOndina').textContent = 'Ondina (.xlsx)';
+
+            document.getElementById('badgeLinks').textContent = '0/3';
+            document.getElementById('labelLinksHtml').textContent = 'HTMLs das 3 lojas';
+            document.getElementById('badgePedidos').textContent = 'Opcional';
+            document.getElementById('labelPedidosXls').textContent = 'Planilha (.xls/.xlsx)';
+            document.getElementById('badgeNaoComprados').textContent = 'Opcional';
+            document.getElementById('labelNaoComprados').textContent = '*_nao_comprados.csv';
+            document.getElementById('badgeExclusivos').textContent = 'Opcional';
+            document.getElementById('labelExclusivosHtml').textContent = 'HTML de Exclusivos';
+            document.getElementById('integrityAlertsContainer').innerHTML = '';
+
+            document.getElementById('ocsDrawer').classList.remove('hidden');
+            document.getElementById('auditUploadDrawer').classList.remove('hidden');
+            renderExtrasWpp();
+            renderHfManualExtras();
+            parseAndRefreshHf();
+            processComparison();
+            showToast('Nova semana iniciada! Sessão limpa.');
+        }
+
+        // =====================================================================
+        // NORMALIZAÇÃO & SINÔNIMOS
+        // =====================================================================
+        function normalizeText(str) {
+            return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+        }
+        function parseSynonymsEditor() {
+            const map = {};
+            document.getElementById('synonymsEditor').value.split('\n').forEach(line => {
+                const parts = line.split('=');
+                if (parts.length === 2) {
+                    const from = normalizeText(parts[0]), to = normalizeText(parts[1]);
+                    if (from && to) map[from] = to;
+                }
+            });
+            state.synonymsMap = map;
+        }
+        function saveSynonyms() {
+            parseSynonymsEditor();
+            parseAndRefreshHf();
+            processComparison();
+            showToast('Sinônimos aplicados!');
+        }
+        function standardizeProduct(name) {
+            const norm = normalizeText(name);
+            return state.synonymsMap[norm] || norm;
+        }
+        function standardizeStore(rawStore) {
+            const n = normalizeText(rawStore);
+            if (n.includes('EMPORIO')) return 'Emporio Volpi';
+            if (n.includes('ONDINA')) return 'Volpi Pizzaria Ondina';
+            if (n.includes('PARALELA')) return 'Cantina Volpi Paralela';
+            return rawStore.trim();
+        }
+        function parsePtBrNumber(val) {
+            if (typeof val === 'number') return val;
+            let s = String(val || '').trim();
+            if (!s) return 0;
+            if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+            else if (s.includes(',')) s = s.replace(',', '.');
+            const n = parseFloat(s);
+            return isNaN(n) ? 0 : n;
+        }
+
+        // =====================================================================
+        // SVG DONUT HELPER
+        // =====================================================================
+        function renderDonutChart(svgId, legendId, totalId, slices) {
+            const svg = document.getElementById(svgId);
+            const legend = document.getElementById(legendId);
+            const totalEl = document.getElementById(totalId);
+            const total = slices.reduce((s, x) => s + x.value, 0);
+            totalEl.textContent = total;
+
+            if (total === 0) {
+                svg.innerHTML = `<circle cx="60" cy="60" r="44" fill="none" stroke="var(--border-elevated)" stroke-width="16" />`;
+                legend.innerHTML = `<div class="text-[var(--text-muted)] text-center text-[11px]">Sem dados</div>`;
+                return;
+            }
+
+            const r = 44, circ = 2 * Math.PI * r;
+            let offset = 0;
+            svg.innerHTML = slices.map(s => {
+                const dash = (s.value / total) * circ;
+                const el = `<circle cx="60" cy="60" r="${r}" fill="none" stroke="${s.color}" stroke-width="16" stroke-dasharray="${dash} ${circ - dash}" stroke-dashoffset="${-offset}" />`;
+                offset += dash;
+                return el;
+            }).join('');
+
+            legend.innerHTML = slices.map(s => {
+                const pct = Math.round((s.value / total) * 100);
+                return `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${s.color}"></span>
+                            <span class="truncate text-[var(--text-muted)]">${s.label}</span>
+                        </div>
+                        <span class="font-bold font-display tabular-nums ml-2">${pct}%</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // =====================================================================
+        // ABA 1: HORTIFRÚTI & COTAÇÕES
+        // =====================================================================
+        function getGradeIndex(prodStd) {
+            const p = normalizeText(prodStd);
+            return GRADE_ORDER.findIndex(g => p === g || p.includes(g));
+        }
+        function getClosedPackageRule(prodStd) {
+            const p = normalizeText(prodStd);
+            return CLOSED_PACKAGES.find(r => r.match.some(m => p === m || p.includes(m))) || null;
+        }
+        function stripCatalogSuffixes(str) {
+            return normalizeText(str).replace(/\b(KG|SEASA)\b/g, '').replace(/\s+/g, ' ').trim();
+        }
+        function detectSupplierFromText(str) {
+            const norm = normalizeText(str);
+            for (const entry of SUPPLIER_KEYWORD_MAP) {
+                if (entry.keys.some(k => norm.includes(k))) return entry.target;
+            }
+            return '';
+        }
+
+        function loadHfExampleOc() {
+            document.getElementById('hfOcsInput').value = `FRUVELE PLUS
+OC #614510
+Nome Fantasia: *Emporio Volpi*
+Produtos:
+*BATATA IN NATURA* - Quantidade: 50
+*TOMATE RASTEIRO (MOLHO)* -
+Gramatura: KG
+Quantidade: 25
+*ALFACE AMERICANA* -
+Gramatura: KG
+Quantidade: 6
+*SUCO DE LARANJA PRONTO* -
+Gramatura: LT
+Quantidade: 15
+
+BIO HORTIFRUTI LTDA
+OC #614511
+Nome Fantasia: *Cantina Volpi Paralela*
+Produtos:
+*CEBOLA* - Quantidade: 40
+*LIMAO SICILIANO* - Quantidade: 2
+*TOMATE CEREJA* - Quantidade: 0.5`;
+            parseAndRefreshHf();
+            showToast('Exemplo carregado com fornecedores detectados!');
+        }
+
+        function handleHfSheetUpload(event, storeName) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const isEmporio = storeName === 'Emporio Volpi';
+            document.getElementById(isEmporio ? 'labelHfEmporio' : 'labelHfOndina').textContent = file.name;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+
+                let headerIdx = -1;
+                let colMap = { prod: 0, uom: 1, qua: 3, sex: 4, seg: 5, tot: 6 };
+                for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                    const rNorm = rows[i].map(c => normalizeText(c));
+                    if (rNorm.includes('PRODUTO')) {
+                        headerIdx = i;
+                        colMap.prod = rNorm.indexOf('PRODUTO');
+                        colMap.uom = rNorm.findIndex(c => c.includes('UNID'));
+                        colMap.qua = rNorm.findIndex(c => c.includes('QUARTA'));
+                        colMap.sex = rNorm.findIndex(c => c.includes('SEXTA'));
+                        colMap.seg = rNorm.findIndex(c => c.includes('SEGUNDA'));
+                        colMap.tot = rNorm.findIndex(c => c.includes('TOTAL'));
+                        break;
+                    }
+                }
+
+                const parsed = [];
+                for (let i = (headerIdx >= 0 ? headerIdx + 1 : 3); i < rows.length; i++) {
+                    const r = rows[i];
+                    const prod = String(r[colMap.prod] || '').trim();
+                    if (!prod || normalizeText(prod) === 'QUANTIDADE') continue;
+                    const qua = parseFloat(r[colMap.qua]) || 0;
+                    const sex = parseFloat(r[colMap.sex]) || 0;
+                    const seg = parseFloat(r[colMap.seg]) || 0;
+                    const tot = parseFloat(r[colMap.tot]) || (qua + sex + seg);
+                    parsed.push({
+                        produto: prod, produtoStd: standardizeProduct(prod),
+                        uom: String(r[colMap.uom] || 'KG').trim().toUpperCase(),
+                        qua, sex, seg, tot
+                    });
+                }
+
+                state.hfSheets[storeName] = parsed;
+                const badge = document.getElementById(isEmporio ? 'badgeHfEmporio' : 'badgeHfOndina');
+                badge.textContent = `OK (${parsed.length})`;
+                badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-[#10B981] text-white font-semibold shrink-0';
+                parseAndRefreshHf();
+                showToast(`Planilha ${storeName} carregada!`);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseHfOcsText(text) {
+            const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+            let currentStore = 'Emporio Volpi';
+            let explicitSupplier = '';
+            let supplierSetForNextOc = false;
+            let inProducts = false;
+            let pendingProd = null;
+            let pendingUom = 'KG';
+            const rawItems = [];
+
+            const flushPending = (qtd) => {
+                if (pendingProd && qtd > 0) {
+                    rawItems.push({
+                        unidade: currentStore, explicitSupplier, produto: pendingProd,
+                        produtoStd: standardizeProduct(pendingProd), qtd, uom: pendingUom || 'KG'
+                    });
+                }
+                pendingProd = null; pendingUom = 'KG';
+            };
+
+            for (const line of lines) {
+                const norm = normalizeText(line);
+                if (/^OC\s*#/i.test(norm)) {
+                    inProducts = false; pendingProd = null;
+                    if (!supplierSetForNextOc) explicitSupplier = detectSupplierFromText(line);
+                    supplierSetForNextOc = false;
+                    continue;
+                }
+                if (/^(RAZAO SOCIAL|CNPJ|PRECO UNITARIO|PRECO TOTAL|ENDERECO|TELEFONE|DATA)/i.test(norm)) {
+                    if (/^RAZAO SOCIAL:/i.test(norm)) {
+                        const detected = detectSupplierFromText(line);
+                        if (detected) { explicitSupplier = detected; supplierSetForNextOc = true; }
+                    }
+                    continue;
+                }
+                if (/^NOME FANTASIA:/i.test(norm)) {
+                    currentStore = standardizeStore(line.split(':').slice(1).join(':').replace(/\*/g, '').trim());
+                    inProducts = false; continue;
+                }
+                if (/^FORNECEDOR:/i.test(norm)) {
+                    const rawSup = line.split(':').slice(1).join(':').replace(/\*/g, '').trim();
+                    explicitSupplier = detectSupplierFromText(rawSup) || rawSup.toUpperCase();
+                    supplierSetForNextOc = true; inProducts = false; continue;
+                }
+                if (/^PRODUTOS:?$/i.test(norm)) { inProducts = true; continue; }
+
+                const singleLineMatch = line.match(/^\*(.+?)\*\s*-\s*(?:Gramatura:\s*([a-zA-Z]+)\s*[-|]?\s*)?Quantidade:\s*([\d.,]+)/i);
+                if (singleLineMatch) {
+                    inProducts = true;
+                    const prod = singleLineMatch[1].trim();
+                    const qtd = parsePtBrNumber(singleLineMatch[3]);
+                    if (prod && qtd > 0) {
+                        rawItems.push({
+                            unidade: currentStore, explicitSupplier, produto: prod,
+                            produtoStd: standardizeProduct(prod), qtd, uom: (singleLineMatch[2] || 'KG').toUpperCase()
+                        });
+                    }
+                    pendingProd = null; continue;
+                }
+
+                const prodMatch = line.match(/^\*(.+?)\*\s*-?$/);
+                if (prodMatch) { inProducts = true; pendingProd = prodMatch[1].trim(); pendingUom = 'KG'; continue; }
+                if (pendingProd) {
+                    const gramMatch = line.match(/^Gramatura:\s*(.+)$/i);
+                    if (gramMatch) { pendingUom = gramMatch[1].trim().toUpperCase(); continue; }
+                    const qtdMatch = line.match(/^Quantidade:\s*([\d.,]+)/i);
+                    if (qtdMatch) { flushPending(parsePtBrNumber(qtdMatch[1])); continue; }
+                }
+
+                const simpleMatch = line.match(/^(.+?)\s*[-|\t]\s*(\d+(?:[.,]\d+)?)\s*([a-zA-Z]+)?$/);
+                if (simpleMatch && !norm.includes('OC #')) {
+                    rawItems.push({
+                        unidade: currentStore, explicitSupplier, produto: simpleMatch[1].trim(),
+                        produtoStd: standardizeProduct(simpleMatch[1].trim()),
+                        qtd: parsePtBrNumber(simpleMatch[2]), uom: (simpleMatch[3] || 'KG').toUpperCase()
+                    });
+                    continue;
+                }
+
+                if (!inProducts && !norm.includes(':') && line.length > 2 && line.length < 70) {
+                    const detected = detectSupplierFromText(line);
+                    if (detected) { explicitSupplier = detected; supplierSetForNextOc = true; }
+                    else if (norm.includes('EMPORIO VOLPI') || norm === 'EMPORIO') currentStore = 'Emporio Volpi';
+                    else if (norm.includes('ONDINA')) currentStore = 'Volpi Pizzaria Ondina';
+                    else if (norm.includes('PARALELA')) currentStore = 'Cantina Volpi Paralela';
+                    else { explicitSupplier = line.replace(/\*/g, '').trim().toUpperCase(); supplierSetForNextOc = true; }
+                }
+            }
+
+            const consolidated = new Map();
+            rawItems.forEach(it => {
+                const key = `${it.unidade}||${it.produtoStd}`;
+                if (!consolidated.has(key)) consolidated.set(key, { ...it });
+                else consolidated.get(key).qtd += it.qtd;
+            });
+            return Array.from(consolidated.values());
+        }
+
+        function resolveItemCategoryAndSupplier(it) {
+            const pNorm = normalizeText(it.produtoStd);
+            const pStripped = stripCatalogSuffixes(it.produtoStd);
+
+            if (getGradeIndex(pNorm) !== -1) {
+                const perStoreKey = `${pNorm}||${it.unidade}`;
+                const winner = state.hfGradePerStoreMode[pNorm]
+                    ? state.hfGradeWinners[perStoreKey]
+                    : (state.hfGradeWinners[pNorm] || it.explicitSupplier || '');
+                return { category: 'GRADE', supplier: winner };
+            }
+            if (EXCLUDED_MUSHROOMS.some(m => pNorm === m || pNorm.includes(m))) {
+                return { category: 'UNCLASSIFIED', supplier: state.hfUnclassifiedWinners[`${pNorm}||${it.unidade}`] || it.explicitSupplier || '' };
+            }
+            if (pNorm.includes('MIX DE FLORES BANDEJA')) return { category: 'EXCLUSIVO', supplier: 'ERVASAL MICROVERDES LTDA' };
+            if (FRUVELE_EXCLUSIVOS.some(f => pStripped === f || pNorm === f)) {
+                return { category: 'EXCLUSIVO', supplier: it.explicitSupplier || 'FRUVELE PLUS' };
+            }
+            return { category: 'UNCLASSIFIED', supplier: state.hfUnclassifiedWinners[`${pNorm}||${it.unidade}`] || it.explicitSupplier || '' };
+        }
+
+        function autoSelectGradeWinnersFromOcs() {
+            const grouped = new Map();
+            state.hfOcItems.forEach(it => {
+                const pNorm = normalizeText(it.produtoStd);
+                if (getGradeIndex(pNorm) === -1) return;
+                if (!grouped.has(pNorm)) grouped.set(pNorm, []);
+                grouped.get(pNorm).push(it);
+            });
+
+            grouped.forEach((items, pNorm) => {
+                const detectedSups = [...new Set(items.map(it => it.explicitSupplier).filter(Boolean))];
+                if (detectedSups.length === 1) {
+                    state.hfGradePerStoreMode[pNorm] = false;
+                    state.hfGradeWinners[pNorm] = detectedSups[0];
+                } else if (detectedSups.length > 1) {
+                    state.hfGradePerStoreMode[pNorm] = true;
+                    items.forEach(it => {
+                        if (it.explicitSupplier) state.hfGradeWinners[`${pNorm}||${it.unidade}`] = it.explicitSupplier;
+                    });
+                }
+            });
+        }
+
+        function parseAndRefreshHf() {
+            state.hfOcItems = parseHfOcsText(document.getElementById('hfOcsInput').value);
+            autoSelectGradeWinnersFromOcs();
+            document.getElementById('headerItemsCounter').textContent = `${state.hfOcItems.length} itens`;
+            document.getElementById('drawerStatusHint').textContent = state.hfOcItems.length > 0
+                ? `${state.hfOcItems.length} itens carregados das OCs.`
+                : 'Cole as OCs para processar a semana.';
+            renderGradeWinnersCard();
+            renderUnclassifiedCard();
+            recalculateHfDistribution();
+        }
+
+        function selectGradeWinner(prodKey, supplier) {
+            state.hfGradeWinners[prodKey] = supplier;
+            renderGradeWinnersCard();
+            recalculateHfDistribution();
+        }
+        function selectGradeOther(prodKey) {
+            const custom = prompt('Digite o nome do fornecedor vencedor:');
+            if (custom && custom.trim()) selectGradeWinner(prodKey, custom.trim().toUpperCase());
+        }
+        function togglePerStoreGrade(prodNorm) {
+            state.hfGradePerStoreMode[prodNorm] = !state.hfGradePerStoreMode[prodNorm];
+            renderGradeWinnersCard();
+            recalculateHfDistribution();
+        }
+
+        function renderGradeWinnersCard() {
+            const gradeItems = state.hfOcItems.filter(it => getGradeIndex(it.produtoStd) !== -1);
+            const card = document.getElementById('gradeWinnersCard');
+            if (gradeItems.length === 0) {
+                card.classList.add('hidden');
+                document.getElementById('gradeStatusPill').textContent = '0/0';
+                document.getElementById('gradientCardSummary').textContent = 'Cole as OCs para visualizar os vencedores da Grade.';
+                return;
+            }
+            card.classList.remove('hidden');
+
+            const grouped = new Map();
+            gradeItems.forEach(it => {
+                const pNorm = normalizeText(it.produtoStd);
+                if (!grouped.has(pNorm)) grouped.set(pNorm, []);
+                grouped.get(pNorm).push(it);
+            });
+
+            let totalSlots = 0, filledSlots = 0;
+            const summaryLines = [];
+            const listHtml = Array.from(grouped.entries()).map(([pNorm, items]) => {
+                const isPerStore = !!state.hfGradePerStoreMode[pNorm];
+                const renderPillsRow = (key, label) => {
+                    totalSlots++;
+                    const current = state.hfGradeWinners[key] || '';
+                    if (current) { filledSlots++; summaryLines.push(`${pNorm}: ${current.replace(' LTDA', '')}`); }
+                    const pills = GRADE_PILLS.map(sup => `
+                        <button onclick="selectGradeWinner('${key}', '${sup}')" class="pill-btn ${current === sup ? 'selected' : ''} px-3 py-1 rounded-full text-xs">
+                            ${sup.replace(' LTDA', '')}
+                        </button>
+                    `).join('');
+                    const isCustom = current && !GRADE_PILLS.includes(current);
+                    return `
+                        <div class="flex flex-wrap items-center justify-between gap-2 py-2">
+                            <div class="text-xs font-medium text-[var(--text-muted)]">${label}</div>
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                ${pills}
+                                <button onclick="selectGradeOther('${key}')" class="pill-btn ${isCustom ? 'selected' : ''} px-3 py-1 rounded-full text-xs">
+                                    ${isCustom ? current : '+ Outro'}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                };
+                const totalQtd = items.reduce((s, x) => s + x.qtd, 0);
+                return `
+                    <div class="py-2.5">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold">${pNorm} <span class="text-[var(--text-muted)] font-normal">(${totalQtd} ${items[0].uom})</span></span>
+                            ${items.length > 1 ? `<button onclick="togglePerStoreGrade('${pNorm}')" class="text-[11px] text-[#3B82F6] hover:underline font-semibold">${isPerStore ? 'Unificar lojas' : 'Diferenciar por loja'}</button>` : ''}
+                        </div>
+                        ${isPerStore
+                            ? items.map(it => renderPillsRow(`${pNorm}||${it.unidade}`, `${it.unidade} (${it.qtd} ${it.uom})`)).join('')
+                            : renderPillsRow(pNorm, items.map(x => `${x.unidade.split(' ')[0]}: ${x.qtd}${x.uom}`).join(' • '))
+                        }
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('gradeWinnersList').innerHTML = listHtml;
+            const pending = totalSlots - filledSlots;
+            document.getElementById('gradeStatusPill').textContent = `${filledSlots}/${totalSlots}`;
+            document.getElementById('gradientCardSummary').innerHTML = summaryLines.length > 0
+                ? summaryLines.slice(0, 4).map(l => `<div>• ${l}</div>`).join('') + (summaryLines.length > 4 ? `<div>+ ${summaryLines.length - 4} item(ns)</div>` : '')
+                : 'Selecione os vencedores da Grade abaixo.';
+
+            const badge = document.getElementById('gradePendingBadge');
+            if (pending > 0) { badge.textContent = `${pending} pendente(s)`; badge.classList.remove('hidden'); }
+            else badge.classList.add('hidden');
+        }
+
+        function setUnclassifiedSupplier(key, val) {
+            state.hfUnclassifiedWinners[key] = val;
+            recalculateHfDistribution();
+        }
+        function renderUnclassifiedCard() {
+            const unclass = state.hfOcItems.filter(it => resolveItemCategoryAndSupplier(it).category === 'UNCLASSIFIED');
+            const card = document.getElementById('unclassifiedCard');
+            if (unclass.length === 0) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+            document.getElementById('unclassifiedList').innerHTML = unclass.map(it => {
+                const key = `${normalizeText(it.produtoStd)}||${it.unidade}`;
+                const cur = state.hfUnclassifiedWinners[key] || '';
+                const opts = ['', ...GRADE_PILLS, 'ERVASAL MICROVERDES LTDA'].map(s => `<option value="${s}" ${cur === s ? 'selected' : ''}>${s || 'Selecionar...'}</option>`).join('');
+                return `
+                    <div class="flex items-center justify-between gap-2 text-xs v-elevated p-2.5 rounded-xl">
+                        <span><strong>${it.unidade}</strong> — ${it.produto} (${it.qtd} ${it.uom})</span>
+                        <select onchange="setUnclassifiedSupplier('${key}', this.value)" class="v-input rounded-lg px-2 py-1 text-xs">${opts}</select>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function distributeProportional(total, weights, unitSize = 1) {
+            const sumW = weights.reduce((a, b) => a + b, 0);
+            if (sumW <= 0) return weights.map((_, i) => i === 0 ? total : 0);
+            if (unitSize > 1) {
+                const totalUnits = Math.round(total / unitSize);
+                const exact = weights.map(w => (w / sumW) * totalUnits);
+                const floors = exact.map(x => Math.floor(x));
+                let rem = totalUnits - floors.reduce((a, b) => a + b, 0);
+                const rems = exact.map((x, i) => ({ i, r: x - floors[i] })).sort((a, b) => b.r - a.r);
+                for (let k = 0; k < rem; k++) floors[rems[k].i]++;
+                return floors.map(u => u * unitSize);
+            }
+            const exact = weights.map(w => (w / sumW) * total);
+            const rounded = exact.map(x => Math.round(x * 10) / 10);
+            const diff = Math.round((total - rounded.reduce((a, b) => a + b, 0)) * 10) / 10;
+            if (diff !== 0) {
+                const maxIdx = weights.indexOf(Math.max(...weights));
+                rounded[maxIdx] = Math.round((rounded[maxIdx] + diff) * 10) / 10;
+            }
+            return rounded;
+        }
+
+        function addHfManualExtra() {
+            const unidade = document.getElementById('hfExtraUnidade').value;
+            const fornecedor = document.getElementById('hfExtraForn').value;
+            const dia = document.getElementById('hfExtraDia').value;
+            const produto = document.getElementById('hfExtraProd').value.trim();
+            const qtd = parseFloat(document.getElementById('hfExtraQtd').value) || 0;
+            const uom = document.getElementById('hfExtraUom').value;
+            if (!produto || qtd <= 0) return showToast('Informe produto e quantidade > 0.', true);
+
+            state.hfManualExtras.push({ unidade, fornecedor, dia, produto, produtoStd: standardizeProduct(produto), qtd, uom });
+            document.getElementById('hfExtraProd').value = '';
+            document.getElementById('hfExtraQtd').value = '';
+            renderHfManualExtras();
+            recalculateHfDistribution();
+            showToast('Item extra incluído!');
+        }
+        function removeHfManualExtra(idx) {
+            state.hfManualExtras.splice(idx, 1);
+            renderHfManualExtras();
+            recalculateHfDistribution();
+        }
+        function renderHfManualExtras() {
+            document.getElementById('badgeHfManualExtras').textContent = `${state.hfManualExtras.length} extras`;
+            document.getElementById('listHfManualExtras').innerHTML = state.hfManualExtras.map((ex, i) => `
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full v-elevated text-[11px]">
+                    <strong class="text-[#10B981]">${ex.unidade.split(' ')[0]}</strong> (${ex.dia.split('-')[0]}): ${ex.produto} ${fmtBr(ex.qtd)} ${ex.uom} — ${ex.fornecedor.split(' ')[0]}
+                    <button onclick="removeHfManualExtra(${i})" class="text-[#E11D48] font-bold ml-1">&times;</button>
+                </span>
+            `).join('');
+        }
+
+        function recalculateHfDistribution() {
+            const fromOcs = state.hfOcItems.map(oc => {
+                const res = resolveItemCategoryAndSupplier(oc);
+                const pkg = getClosedPackageRule(oc.produtoStd);
+                const pkgSize = pkg ? pkg.size : 1;
+                let qua = 0, sex = 0, seg = 0, sheetTot = 0;
+
+                if (oc.unidade === 'Cantina Volpi Paralela') {
+                    const pNorm = normalizeText(oc.produtoStd);
+                    if (pNorm.includes('LIMAO SICILIANO') || pNorm.includes('TOMATE CEREJA') || oc.qtd <= 0.5) {
+                        qua = oc.qtd; sex = 0;
+                    } else if (pkgSize > 1) {
+                        const units = Math.round(oc.qtd / pkgSize);
+                        qua = Math.ceil(units / 2) * pkgSize;
+                        sex = (units - Math.ceil(units / 2)) * pkgSize;
+                    } else {
+                        qua = Math.ceil((oc.qtd / 2) * 10) / 10;
+                        sex = Math.round((oc.qtd - qua) * 10) / 10;
+                    }
+                } else {
+                    const sheet = state.hfSheets[oc.unidade] || [];
+                    const found = sheet.find(s => s.produtoStd === oc.produtoStd);
+                    if (found && found.tot > 0) {
+                        sheetTot = found.tot;
+                        [qua, sex, seg] = distributeProportional(oc.qtd, [found.qua, found.sex, found.seg], pkgSize);
+                    } else {
+                        qua = oc.qtd;
+                    }
+                }
+                return { ...oc, category: res.category, fornecedor: res.supplier, pkg, qua, sex, seg, sheetTot };
+            });
+
+            const fromExtras = state.hfManualExtras.map(ex => ({
+                unidade: ex.unidade, fornecedor: ex.fornecedor, produto: ex.produto, produtoStd: ex.produtoStd,
+                qtd: ex.qtd, uom: ex.uom, category: getGradeIndex(ex.produtoStd) !== -1 ? 'GRADE' : 'EXCLUSIVO',
+                pkg: getClosedPackageRule(ex.produtoStd),
+                qua: ex.dia === 'Quarta-feira' ? ex.qtd : 0,
+                sex: ex.dia === 'Sexta-feira' ? ex.qtd : 0,
+                seg: ex.dia === 'Segunda-feira' ? ex.qtd : 0,
+                sheetTot: 0, isManualExtra: true
+            }));
+
+            state.hfConferencia = [...fromOcs, ...fromExtras];
+            updateDashboardVisuals();
+            renderConfTable();
+            generateHfOutputs();
+        }
+
+        function recalculateAndRenderFeed() { updateDashboardVisuals(); generateHfOutputs(); }
+        function toggleFocusStore(store) { state.focusedStore = state.focusedStore === store ? null : store; updateDashboardVisuals(); }
+        function selectFeedDay(dayKey) { state.selectedFeedDay = dayKey; updateDashboardVisuals(); }
+
+        function updateDashboardVisuals() {
+            const items = state.hfConferencia;
+            const volEmp = items.filter(x => x.unidade === 'Emporio Volpi').reduce((s, x) => s + x.qtd, 0);
+            const volOnd = items.filter(x => x.unidade === 'Volpi Pizzaria Ondina').reduce((s, x) => s + x.qtd, 0);
+            const volPar = items.filter(x => x.unidade === 'Cantina Volpi Paralela').reduce((s, x) => s + x.qtd, 0);
+            const totVol = Math.round((volEmp + volOnd + volPar) * 10) / 10;
+
+            document.getElementById('heroVolume').textContent = totVol.toLocaleString('pt-BR');
+            const pEmp = totVol > 0 ? Math.round((volEmp / totVol) * 100) : 34;
+            const pOnd = totVol > 0 ? Math.round((volOnd / totVol) * 100) : 33;
+            const pPar = totVol > 0 ? Math.max(0, 100 - pEmp - pOnd) : 33;
+
+            document.getElementById('segBarEmporio').style.width = `${pEmp}%`;
+            document.getElementById('segBarOndina').style.width = `${pOnd}%`;
+            document.getElementById('segBarParalela').style.width = `${pPar}%`;
+
+            document.getElementById('legEmporio').innerHTML = `${Math.round(volEmp * 10) / 10} <span class="text-[11px] font-normal text-[var(--text-muted)]">${totVol ? pEmp : 0}%</span>`;
+            document.getElementById('legOndina').innerHTML = `${Math.round(volOnd * 10) / 10} <span class="text-[11px] font-normal text-[var(--text-muted)]">${totVol ? pOnd : 0}%</span>`;
+            document.getElementById('legParalela').innerHTML = `${Math.round(volPar * 10) / 10} <span class="text-[11px] font-normal text-[var(--text-muted)]">${totVol ? pPar : 0}%</span>`;
+
+            document.getElementById('miniCount-Emporio').textContent = `${items.filter(x => x.unidade === 'Emporio Volpi').length} it`;
+            document.getElementById('miniCount-Ondina').textContent = `${items.filter(x => x.unidade === 'Volpi Pizzaria Ondina').length} it`;
+            document.getElementById('miniCount-Paralela').textContent = `${items.filter(x => x.unidade === 'Cantina Volpi Paralela').length} it`;
+
+            document.getElementById('miniStore-Paralela').classList.toggle('active', state.focusedStore === 'Cantina Volpi Paralela');
+            document.getElementById('miniStore-Emporio').classList.toggle('active', state.focusedStore === 'Emporio Volpi');
+            document.getElementById('miniStore-Ondina').classList.toggle('active', state.focusedStore === 'Volpi Pizzaria Ondina');
+
+            document.getElementById('gradientExclCount').textContent = `${items.filter(x => x.category === 'EXCLUSIVO').length} itens`;
+
+            const gradeCnt = items.filter(x => x.category === 'GRADE').length;
+            const gradePct = items.length > 0 ? Math.round((gradeCnt / items.length) * 100) : 0;
+            document.getElementById('propGradePct').textContent = `${gradePct}%`;
+            document.getElementById('propGradeBar').style.width = `${gradePct}%`;
+
+            const supCounts = {};
+            items.forEach(c => { const s = c.fornecedor || 'A definir'; supCounts[s] = (supCounts[s] || 0) + 1; });
+            const colors = ['#2563EB', '#7C3AED', '#10B981', '#F59E0B', '#E11D48', '#64748B'];
+            const slices = Object.entries(supCounts).map(([label, value], i) => ({ label, value, color: colors[i % colors.length] }));
+            renderDonutChart('supplierDonutSvg', 'supplierDonutLegend', 'donutTotalLabel', slices);
+
+            const antecipa = document.getElementById('hfAnteciparQuinta').checked;
+            document.getElementById('dayPillLabel-Second').textContent = antecipa ? 'Qui' : 'Sex';
+            document.getElementById('dayPill-Quarta').classList.toggle('active', state.selectedFeedDay === 'Quarta-feira');
+            document.getElementById('dayPill-Second').classList.toggle('active', state.selectedFeedDay === 'SECOND');
+            document.getElementById('dayPill-Segunda').classList.toggle('active', state.selectedFeedDay === 'Segunda-feira');
+
+            const filteredFeed = items.filter(c => !state.focusedStore || c.unidade === state.focusedStore);
+            const dayField = state.selectedFeedDay === 'Quarta-feira' ? 'qua' : (state.selectedFeedDay === 'SECOND' ? 'sex' : 'seg');
+            const dayItems = filteredFeed.filter(c => c[dayField] > 0);
+
+            document.getElementById('feedHeaderCount').textContent = `${dayItems.length} entregas`;
+            document.getElementById('feedHeaderSub').textContent = state.focusedStore ? `Filtro: ${state.focusedStore}` : 'Todas as 3 unidades';
+
+            const qCnt = filteredFeed.filter(c => c.qua > 0).length;
+            const sCnt = filteredFeed.filter(c => c.sex > 0).length;
+            const segCnt = filteredFeed.filter(c => c.seg > 0).length;
+            document.getElementById('dayDot-Quarta').textContent = qCnt > 0 ? `${qCnt} it` : '—';
+            document.getElementById('dayDot-Second').textContent = sCnt > 0 ? `${sCnt} it` : '—';
+            document.getElementById('dayDot-Segunda').textContent = segCnt > 0 ? `${segCnt} it` : '—';
+
+            const feedList = document.getElementById('deliveryFeedList');
+            if (dayItems.length === 0) {
+                feedList.innerHTML = `<div class="py-10 text-center text-xs text-[var(--text-muted)]">Nenhum item programado para este dia.</div>`;
+            } else {
+                feedList.innerHTML = state.hfConferencia.map((c, confIdx) => {
+                    if (state.focusedStore && c.unidade !== state.focusedStore) return '';
+                    if (c[dayField] <= 0) return '';
+                    return `
+                    <div class="py-2.5 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="w-8 h-8 rounded-xl ${c.category === 'GRADE' ? 'bg-[#2563EB]' : 'bg-[#10B981]'} text-white flex items-center justify-center shrink-0">
+                                <i data-lucide="${c.category === 'GRADE' ? 'trophy' : 'leaf'}" class="w-3.5 h-3.5"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-xs font-semibold truncate">${c.produto}</div>
+                                <div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-[var(--text-muted)] truncate">
+                                    <span class="px-1.5 py-0.5 rounded v-elevated font-medium">${c.unidade.split(' ')[0]}</span>
+                                    <span>${c.fornecedor || 'Definir Grade'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <input type="number" step="0.1" value="${c[dayField]}" onchange="updateFeedItemDay(${confIdx}, '${dayField}', this.value)" class="v-input w-14 rounded-lg px-1.5 py-1 text-right text-xs font-bold font-display tabular-nums">
+                            <span class="text-[10px] text-[var(--text-muted)] w-6">${c.uom}</span>
+                            <button onclick="updateFeedItemDay(${confIdx}, '${dayField}', 0)" title="Zerar neste dia" class="w-5 h-5 rounded-full hover:bg-[#E11D48] text-[var(--text-muted)] hover:text-white text-xs font-bold flex items-center justify-center transition">&times;</button>
+                        </div>
+                    </div>
+                `;
+                }).join('');
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function updateFeedItemDay(confIdx, dayField, val) {
+            const n = parseFloat(val);
+            const item = state.hfConferencia[confIdx];
+            if (!item || isNaN(n) || n < 0) return;
+            item[dayField] = n;
+            item.qtd = Math.round((item.qua + item.sex + item.seg) * 100) / 100;
+            updateDashboardVisuals();
+            renderConfTable();
+            generateHfOutputs();
+        }
+
+        function toggleFeedAddRow() {
+            document.getElementById('feedAddRow').classList.toggle('hidden');
+        }
+
+        function addFeedDayItem() {
+            const unidade = document.getElementById('feedAddUnidade').value;
+            const fornecedor = document.getElementById('feedAddForn').value;
+            const produto = document.getElementById('feedAddProd').value.trim();
+            const qtd = parseFloat(document.getElementById('feedAddQtd').value) || 0;
+            const uom = document.getElementById('feedAddUom').value;
+            if (!produto || qtd <= 0) return showToast('Informe produto e quantidade > 0.', true);
+
+            const dia = state.selectedFeedDay === 'Quarta-feira' ? 'Quarta-feira'
+                : (state.selectedFeedDay === 'SECOND' ? 'Sexta-feira' : 'Segunda-feira');
+
+            state.hfManualExtras.push({ unidade, fornecedor, dia, produto, produtoStd: standardizeProduct(produto), qtd, uom });
+            document.getElementById('feedAddProd').value = '';
+            document.getElementById('feedAddQtd').value = '';
+            document.getElementById('feedAddRow').classList.add('hidden');
+            renderHfManualExtras();
+            recalculateHfDistribution();
+            showToast(`Adicionado em ${dia}!`);
+        }
+
+        function toggleConfTable() { document.getElementById('confTableWrapper').classList.toggle('hidden'); }
+        function updateHfConfDay(idx, field, val) {
+            const n = parseFloat(val);
+            if (!isNaN(n) && n >= 0 && state.hfConferencia[idx]) {
+                state.hfConferencia[idx][field] = n;
+                state.hfConferencia[idx].qtd = Math.round((state.hfConferencia[idx].qua + state.hfConferencia[idx].sex + state.hfConferencia[idx].seg) * 100) / 100;
+                updateDashboardVisuals();
+                generateHfOutputs();
+            }
+        }
+        function moveParalelaToSeg(idx) {
+            const item = state.hfConferencia[idx];
+            if (!item) return;
+            item.qua = 0; item.sex = 0; item.seg = item.qtd;
+            renderConfTable();
+            updateDashboardVisuals();
+            generateHfOutputs();
+            showToast(`${item.produto} movido 100% para Segunda-feira!`);
+        }
+        function renderConfTable() {
+            document.getElementById('hfConfBody').innerHTML = state.hfConferencia.map((c, idx) => `
+                <tr class="even:bg-[#181C28]/40">
+                    <td class="p-3 text-[var(--text-muted)]">${c.unidade}</td>
+                    <td class="p-3 font-medium ${c.fornecedor ? '' : 'text-[#F59E0B]'}">${c.fornecedor || 'A definir'}</td>
+                    <td class="p-3 font-semibold">${c.produto} ${c.isManualExtra ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-[#10B981] text-white ml-1">Extra</span>' : ''}</td>
+                    <td class="p-3 text-right font-mono font-bold">${fmtBr(c.qtd)} ${c.uom}</td>
+                    <td class="p-3 text-right font-mono text-[var(--text-muted)]">${c.sheetTot ? fmtBr(c.sheetTot) : '-'}</td>
+                    <td class="p-3 text-center text-[#3B82F6] font-medium">${c.pkg ? c.pkg.label : '-'}</td>
+                    <td class="p-3 text-center">
+                        <div class="flex items-center justify-center gap-1 font-mono">
+                            <input type="number" step="0.1" value="${c.qua}" onchange="updateHfConfDay(${idx}, 'qua', this.value)" class="v-input w-14 rounded-lg px-1 py-0.5 text-center text-xs">
+                            <input type="number" step="0.1" value="${c.sex}" onchange="updateHfConfDay(${idx}, 'sex', this.value)" class="v-input w-14 rounded-lg px-1 py-0.5 text-center text-xs">
+                            <input type="number" step="0.1" value="${c.seg}" onchange="updateHfConfDay(${idx}, 'seg', this.value)" class="v-input w-14 rounded-lg px-1 py-0.5 text-center text-xs">
+                            ${c.unidade === 'Cantina Volpi Paralela' ? `<button onclick="moveParalelaToSeg(${idx})" class="ml-1 px-2 py-0.5 rounded bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[10px] font-sans font-semibold transition">100% Seg</button>` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function fmtBr(num) { return String(Math.round(num * 100) / 100).replace('.', ','); }
+        function formatClosedPkgPhrase(qtd, pkg) {
+            if (!pkg || pkg.size <= 1) return '';
+            const count = Math.round((qtd / pkg.size) * 10) / 10;
+            const plural = count > 1;
+            const pNorm = pkg.label.toLowerCase();
+            if (pNorm.includes('saco')) return `*(${fmtBr(count)} ${plural ? 'sacos' : 'saco'} de ${pkg.size} kg)*`;
+            if (pNorm.includes('caixa')) return `*(${fmtBr(count)} ${plural ? 'caixas' : 'caixa'} de ${pkg.size} kg)*`;
+            if (pNorm.includes('galão') || pNorm.includes('galao')) return `*(${fmtBr(count)} ${plural ? 'galões' : 'galão'} de ${pkg.size} L)*`;
+            return `*(${fmtBr(count)}x ${pkg.label})*`;
+        }
+
+        function generateHfOutputs() {
+            const validItems = state.hfConferencia.filter(c => c.fornecedor);
+            const wrapper = document.getElementById('hfOutputsWrapper');
+            if (validItems.length === 0) { wrapper.classList.add('hidden'); return; }
+            wrapper.classList.remove('hidden');
+
+            const holidayNote = document.getElementById('hfHolidayNote').value.trim();
+            const anteciparQuinta = document.getElementById('hfAnteciparQuinta').checked;
+            const secondDayLabel = anteciparQuinta ? 'Quinta-feira' : 'Sexta-feira';
+            const dias = ['Quarta-feira', secondDayLabel, 'Segunda-feira'];
+
+            const bySupplier = {};
+            const byStore = { 'Cantina Volpi Paralela': {}, 'Emporio Volpi': {}, 'Volpi Pizzaria Ondina': {} };
+
+            validItems.forEach(c => {
+                const activeDays = [c.qua > 0, c.sex > 0, c.seg > 0].filter(Boolean).length;
+                const isSingle = activeDays === 1;
+                [['Quarta-feira', c.qua], [secondDayLabel, c.sex], ['Segunda-feira', c.seg]].forEach(([dia, qtd]) => {
+                    if (qtd <= 0) return;
+                    if (!bySupplier[c.fornecedor]) bySupplier[c.fornecedor] = {};
+                    if (!bySupplier[c.fornecedor][dia]) bySupplier[c.fornecedor][dia] = {};
+                    if (!bySupplier[c.fornecedor][dia][c.unidade]) bySupplier[c.fornecedor][dia][c.unidade] = [];
+
+                    const pkgPhrase = formatClosedPkgPhrase(qtd, c.pkg);
+                    const singleNote = isSingle && !pkgPhrase ? ' (100% do pedido)' : '';
+                    const obs = pkgPhrase ? ` ${pkgPhrase}` : singleNote;
+
+                    bySupplier[c.fornecedor][dia][c.unidade].push({ prod: c.produto, prodStd: c.produtoStd, qtd, uom: c.uom, obs });
+
+                    if (!byStore[c.unidade][dia]) byStore[c.unidade][dia] = [];
+                    byStore[c.unidade][dia].push({ prod: c.produto, prodStd: c.produtoStd, qtd, uom: c.uom, forn: c.fornecedor, pkgNote: pkgPhrase });
+                });
+            });
+
+            const sortItems = arr => arr.sort((a, b) => {
+                const ga = getGradeIndex(a.prodStd), gb = getGradeIndex(b.prodStd);
+                if (ga !== -1 && gb !== -1) return ga - gb;
+                if (ga !== -1) return -1;
+                if (gb !== -1) return 1;
+                return a.prod.localeCompare(b.prod, 'pt-BR');
+            });
+
+            const formatStoreHeader = (store, dia) => {
+                if (store === 'Cantina Volpi Paralela') {
+                    if (dia === 'Quarta-feira') return '📍 Cantina Volpi Paralela (1ª Entrega):';
+                    if (dia === secondDayLabel) return '📍 Cantina Volpi Paralela (2ª Entrega):';
+                    return '📍 Cantina Volpi Paralela:';
+                }
+                if (store === 'Emporio Volpi') return '📍 Empório Volpi:';
+                return `📍 ${store}:`;
+            };
+
+            const storeOrder = ['Cantina Volpi Paralela', 'Emporio Volpi', 'Volpi Pizzaria Ondina'];
+            state.hfGeneratedTexts = [];
+            document.getElementById('hfMessagesContainer').innerHTML = Object.keys(bySupplier).map((forn, idx) => {
+                const avisoTxt = holidayNote ? `${holidayNote} ` : (anteciparQuinta ? 'Antecipando entrega de Sexta-feira para Quinta-feira. ' : '');
+                let lines = [
+                    `🟢 ${idx + 1}. MENSAGEM PARA: ${forn}`,
+                    `Olá! ${avisoTxt}Segue a programação completa atualizada, organizada por dia e unidade:`
+                ];
+
+                dias.forEach(d => {
+                    if (!bySupplier[forn][d]) return;
+                    lines.push(`\n📅 ${d.toUpperCase()}`);
+                    storeOrder.forEach(u => {
+                        const list = bySupplier[forn][d][u];
+                        if (!list || list.length === 0) return;
+                        lines.push(`\n${formatStoreHeader(u, d)}`);
+                        sortItems(list).forEach(it => lines.push(`\n${it.prod}: ${fmtBr(it.qtd)} ${it.uom.toLowerCase()}${it.obs}`));
+                    });
+                });
+
+                lines.push(`\nFavor confirmar o recebimento e o aceite de todas as programações. Obrigado!`);
+                const msg = lines.join('\n');
+                state.hfGeneratedTexts.push(msg);
+                return `
+                    <div class="v-card p-5 flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-bold">${forn}</span>
+                            <button onclick="navigator.clipboard.writeText(state.hfGeneratedTexts[${idx}]).then(()=>showToast('Mensagem copiada!'))" class="px-3.5 py-1.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition">Copiar Mensagem</button>
+                        </div>
+                        <pre class="v-elevated p-3.5 rounded-xl text-[11px] font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">${msg}</pre>
+                    </div>
+                `;
+            }).join('');
+
+            state.hfChecklistTexts = [];
+            document.getElementById('hfChecklistContainer').innerHTML = storeOrder.map((store, idx) => {
+                let lines = [`CHECKLIST RECEBIMENTO - ${store.toUpperCase()}`, '----------------------------------------'];
+                if (holidayNote) lines.push(`AVISO: ${holidayNote}`);
+                let has = false;
+                dias.forEach(d => {
+                    const list = byStore[store][d];
+                    if (!list || list.length === 0) return;
+                    has = true;
+                    lines.push(`\n📅 ${d.toUpperCase()}`);
+                    sortItems(list).forEach(it => {
+                        const isGrade = getGradeIndex(it.prodStd) !== -1;
+                        const detail = isGrade ? ` (${it.forn}${it.pkgNote ? ' - ' + it.pkgNote : ''})` : (it.pkgNote ? ` ${it.pkgNote}` : '');
+                        lines.push(`• ${it.prod}: ${fmtBr(it.qtd)} ${it.uom.toLowerCase()}${detail}`);
+                    });
+                });
+                if (!has) lines.push('\nNenhum item programado.');
+                const msg = lines.join('\n');
+                state.hfChecklistTexts.push(msg);
+                return `
+                    <div class="v-card p-5 flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-bold">${store}</span>
+                            <button onclick="navigator.clipboard.writeText(state.hfChecklistTexts[${idx}]).then(()=>showToast('Checklist copiado!'))" class="px-3 py-1 rounded-full bg-[#10B981] hover:bg-[#059669] text-white text-[11px] font-semibold transition">Copiar Checklist</button>
+                        </div>
+                        <pre class="v-elevated p-3 rounded-xl text-[11px] font-mono whitespace-pre-wrap max-h-56 overflow-y-auto">${msg}</pre>
+                    </div>
+                `;
+            }).join('');
+        }
+        function copyAllHfMessages() {
+            navigator.clipboard.writeText(state.hfGeneratedTexts.join('\n\n')).then(() => showToast('Todas as mensagens copiadas!'));
+        }
+
+        // =====================================================================
+        // ABA 2: AUDITORIA VMARKET
+        // =====================================================================
+        function handleLinksUpload(event) {
+            const files = Array.from(event.target.files || []);
+            if (files.length === 0) return;
+            document.getElementById('labelLinksHtml').textContent = `${files.length} arquivo(s)`;
+            let done = 0;
+
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const doc = new DOMParser().parseFromString(e.target.result, 'text/html');
+                    let filialRaw = '';
+                    doc.querySelectorAll('p').forEach(p => {
+                        if (p.textContent.includes('da empresa')) {
+                            const strongs = p.querySelectorAll('strong');
+                            if (strongs.length >= 2) filialRaw = strongs[1].textContent.trim();
+                        }
+                    });
+                    const filial = standardizeStore(filialRaw || file.name);
+                    const menuLinks = Array.from(doc.querySelectorAll('.menusecoes ul li a')).map(a => a.textContent.trim());
+                    const loadedLeads = Array.from(doc.querySelectorAll('strong.lead')).map(s => s.textContent.replace('Seção:', '').trim());
+                    const missingSecoes = menuLinks.filter(sec => !loadedLeads.includes(sec));
+
+                    const items = [];
+                    doc.querySelectorAll('div.row-produto').forEach(node => {
+                        const nomeIn = node.querySelector('input.input-nome');
+                        const nome = nomeIn ? nomeIn.value.trim() : '';
+                        if (!nome) return;
+                        const cols = node.querySelectorAll(':scope > div');
+                        const uomIn = cols.length >= 3 ? cols[1].querySelector('input') : null;
+                        const solicIn = node.querySelector('input.solicitacao');
+                        const solicRaw = solicIn ? solicIn.value.trim() : '';
+                        items.push({
+                            filial, produto: nome,
+                            uomLink: uomIn ? uomIn.value.trim().toUpperCase() : '',
+                            qtdSolicitada: solicRaw === '' ? 0 : (parseFloat(solicRaw.replace(',', '.')) || 0)
+                        });
+                    });
+
+                    state.linksByStore[filial] = { meta: { filial, missingSecoes, totalLoaded: loadedLeads.length }, items };
+                    done++;
+                    if (done === files.length) {
+                        const stores = Object.keys(state.linksByStore);
+                        document.getElementById('badgeLinks').textContent = `${stores.length}/3`;
+                        document.getElementById('integrityAlertsContainer').innerHTML = stores.map(s => {
+                            const m = state.linksByStore[s].meta;
+                            if (m.missingSecoes.length > 0) return `<div class="rounded-2xl p-3 bg-[#E11D48]/15 border border-[#E11D48] text-[#FDA4AF] text-xs"><strong>${m.filial} INCOMPLETO:</strong> Faltam seções: ${m.missingSecoes.join(', ')}</div>`;
+                            return `<div class="rounded-2xl p-2.5 bg-[#10B981]/15 border border-[#10B981] text-[#6EE7B7] text-xs"><strong>${m.filial}:</strong> ${m.totalLoaded} seções carregadas (${state.linksByStore[s].items.length} itens).</div>`;
+                        }).join('');
+                        processComparison();
+                    }
+                };
+                reader.readAsText(file, 'UTF-8');
+            });
+        }
+
+        function handlePedidosUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('labelPedidosXls').textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const sample = new TextDecoder('utf-8').decode(data.slice(0, 600));
+                let rows = [];
+                if (sample.trim().startsWith('<html') || sample.includes('<table')) {
+                    const doc = new DOMParser().parseFromString(new TextDecoder('utf-8').decode(data), 'text/html');
+                    const table = doc.querySelector('table');
+                    if (table) {
+                        const trs = Array.from(table.querySelectorAll('tr'));
+                        const headers = Array.from(trs[0].querySelectorAll('th, td')).map(h => h.textContent.trim());
+                        for (let i = 1; i < trs.length; i++) {
+                            const tds = Array.from(trs[i].querySelectorAll('td')).map(td => td.textContent.trim());
+                            if (tds.length < 3) continue;
+                            let obj = {};
+                            headers.forEach((h, idx) => obj[h] = tds[idx] || '');
+                            rows.push(obj);
+                        }
+                    }
+                } else {
+                    const wb = XLSX.read(data, { type: 'array' });
+                    rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+                }
+                state.pedidosRaw = rows;
+                reprocessPedidosMilhar();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function reprocessPedidosMilhar() {
+            state.pedidosRows = state.pedidosRaw.map(raw => {
+                const produto = raw['Produto'] || raw['produto'] || '';
+                const qtd = parsePtBrNumber(raw['Quantidade'] || raw['quantidade'] || 0);
+                return {
+                    loja: standardizeStore(raw['Loja'] || raw['Filial'] || ''),
+                    produto: String(produto).trim(),
+                    uom: (raw['Gramatura'] || raw['UOM'] || '').toString().trim().toUpperCase(),
+                    quantidade: qtd
+                };
+            }).filter(r => r.produto);
+            document.getElementById('badgePedidos').textContent = `${state.pedidosRows.length} lin`;
+            processComparison();
+        }
+
+        function handleNaoCompradosUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('labelNaoComprados').textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', raw: false });
+                const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+                state.naoCompradosRows = rows.map(raw => ({
+                    loja: standardizeStore(raw['Filial'] || raw['Loja'] || ''),
+                    produto: String(raw['Produto'] || raw['produto'] || '').trim()
+                })).filter(r => r.produto);
+                document.getElementById('badgeNaoComprados').textContent = `${state.naoCompradosRows.length} itens`;
+                processComparison();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleExclusivosUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('labelExclusivosHtml').textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const doc = new DOMParser().parseFromString(e.target.result, 'text/html');
+                state.exclusivosRows = [];
+                doc.querySelectorAll('div.x_panel').forEach(panel => {
+                    const isRealizado = (panel.querySelector('h2')?.textContent || '').includes('Pedido feito') || panel.textContent.includes('O Pedido nesse Fornecedor foi realizado!');
+                    panel.querySelectorAll('div.x_content').forEach(cont => {
+                        const loja = standardizeStore(cont.querySelector('h5 strong')?.textContent.trim() || '');
+                        cont.querySelectorAll('table.tabela-produtos tbody tr').forEach(tr => {
+                            const tds = tr.querySelectorAll('td');
+                            if (tds.length >= 4) {
+                                state.exclusivosRows.push({
+                                    loja, produto: tds[0].textContent.trim(),
+                                    uom: tds[1].textContent.trim().toUpperCase(),
+                                    quantidade: parseFloat((tds[3].childNodes[0]?.textContent || tds[3].textContent).trim().replace(',', '.')) || 0,
+                                    statusExclusivo: isRealizado ? 'REALIZADO' : 'PENDENTE'
+                                });
+                            }
+                        });
+                    });
+                });
+                document.getElementById('badgeExclusivos').textContent = `${state.exclusivosRows.length} itens`;
+                processComparison();
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function addExtraWpp() {
+            const unidade = document.getElementById('extraUnidade').value;
+            const dia = document.getElementById('extraDia').value;
+            const produto = document.getElementById('extraProduto').value.trim();
+            const qtd = parseFloat(document.getElementById('extraQtd').value) || 0;
+            const uom = document.getElementById('extraUom').value;
+            if (!produto || qtd <= 0) return showToast('Informe produto e quantidade > 0.', true);
+            state.extrasWpp.push({ unidade, dia, produto, qtd, uom });
+            document.getElementById('extraProduto').value = '';
+            document.getElementById('extraQtd').value = '';
+            renderExtrasWpp();
+            processComparison();
+        }
+        function renderExtrasWpp() {
+            document.getElementById('badgeExtrasWpp').textContent = `${state.extrasWpp.length} registros`;
+            document.getElementById('listExtrasWpp').innerHTML = state.extrasWpp.map((ex, i) => `
+                <div class="flex items-center justify-between v-elevated px-3 py-1.5 rounded-xl">
+                    <span><strong>${ex.unidade}</strong> (${ex.dia}): ${ex.produto} — ${ex.qtd} ${ex.uom}</span>
+                    <button onclick="state.extrasWpp.splice(${i},1);renderExtrasWpp();processComparison();" class="text-[#E11D48] font-bold">Remover</button>
+                </div>
+            `).join('');
+        }
+
+        function processComparison() {
+            const map = new Map();
+            const getOrCreate = (unidade, prodStd, prodDisplay) => {
+                const key = `${unidade}||${prodStd}`;
+                if (!map.has(key)) map.set(key, { key, unidade, produto: prodDisplay, produtoStd: prodStd, uomLink: '', uomsComp: new Set(), qtdLink: 0, qtdPlanilha: 0, qtdExclFeito: 0, qtdExclPend: 0, qtdExtraWpp: 0, inNaoComprados: false });
+                return map.get(key);
+            };
+
+            Object.values(state.linksByStore).forEach(s => s.items.forEach(it => {
+                const r = getOrCreate(it.filial, standardizeProduct(it.produto), it.produto);
+                r.uomLink = it.uomLink || r.uomLink;
+                r.qtdLink += it.qtdSolicitada;
+            }));
+            state.pedidosRows.forEach(p => {
+                const r = getOrCreate(p.loja, standardizeProduct(p.produto), p.produto);
+                r.qtdPlanilha += p.quantidade;
+                if (p.uom) r.uomsComp.add(p.uom);
+            });
+            state.naoCompradosRows.forEach(nc => {
+                getOrCreate(nc.loja, standardizeProduct(nc.produto), nc.produto).inNaoComprados = true;
+            });
+            state.exclusivosRows.forEach(ex => {
+                const r = getOrCreate(ex.loja, standardizeProduct(ex.produto), ex.produto);
+                if (ex.statusExclusivo === 'REALIZADO') r.qtdExclFeito += ex.quantidade;
+                else r.qtdExclPend += ex.quantidade;
+                if (ex.uom) r.uomsComp.add(ex.uom);
+            });
+            state.extrasWpp.forEach(w => {
+                const r = getOrCreate(w.unidade, standardizeProduct(w.produto), w.produto);
+                r.qtdExtraWpp += w.qtd;
+                if (w.uom) r.uomsComp.add(w.uom);
+            });
+
+            state.auditRows = Array.from(map.values()).map(r => {
+                const totalComp = r.qtdPlanilha + r.qtdExclFeito + r.qtdExtraWpp;
+                const uomCompStr = Array.from(r.uomsComp).join('/');
+                let status = 'BRANCO';
+                if (r.qtdLink > 0) {
+                    if (totalComp === 0 && r.qtdExclPend > 0) status = 'PENDENTE_EXCL';
+                    else if (totalComp === 0 && r.inNaoComprados) {
+                        status = 'NÃO COMPRADO';
+                        if (!state.justificativas[r.key] && HORTIFRUTI_KEYWORDS.some(k => r.produtoStd.includes(k))) {
+                            state.justificativas[r.key] = { motivo: 'Cotação própria de Hortifrúti', obs: '' };
+                        }
+                    } else if (totalComp === 0) status = 'FALTA';
+                    else if (Math.abs(totalComp - r.qtdLink) < 0.001) status = 'OK';
+                    else status = 'AJUSTADO';
+                } else if (totalComp > 0) status = 'EXTRA';
+                else if (r.qtdExclPend > 0) status = 'PENDENTE_EXCL';
+                else if (r.inNaoComprados) status = 'NÃO COMPRADO';
+
+                return { ...r, totalComp, uomCompStr, status };
+            });
+
+            const has = state.auditRows.length > 0;
+            document.getElementById('btnExportExcel').disabled = !has;
+            document.getElementById('btnCopyWpp').disabled = !has;
+
+            // Recolher gaveta de upload automaticamente quando Links + alguma fonte de retorno forem carregadas
+            if (Object.keys(state.linksByStore).length > 0 && (state.pedidosRows.length > 0 || state.naoCompradosRows.length > 0 || state.exclusivosRows.length > 0)) {
+                document.getElementById('auditUploadDrawer').classList.add('hidden');
+            }
+
+            // Métricas Bento Grid
+            const activeRows = state.auditRows.filter(r => r.status !== 'BRANCO');
+            const linkRows = activeRows.filter(r => r.qtdLink > 0);
+            const okCnt = activeRows.filter(r => r.status === 'OK').length;
+            const ajCnt = activeRows.filter(r => r.status === 'AJUSTADO').length;
+            const ncCnt = activeRows.filter(r => r.status === 'FALTA' || r.status === 'NÃO COMPRADO' || r.status === 'PENDENTE_EXCL').length;
+            const exCnt = activeRows.filter(r => r.status === 'EXTRA').length;
+
+            const attendedCnt = linkRows.filter(r => r.status === 'OK' || r.status === 'AJUSTADO').length;
+            const attendPct = linkRows.length > 0 ? Math.round((attendedCnt / linkRows.length) * 100) : 0;
+            document.getElementById('auditHeroPct').textContent = `${attendPct}%`;
+
+            const empLink = linkRows.filter(r => r.unidade === 'Emporio Volpi').length;
+            const ondLink = linkRows.filter(r => r.unidade === 'Volpi Pizzaria Ondina').length;
+            const parLink = linkRows.filter(r => r.unidade === 'Cantina Volpi Paralela').length;
+            const totLink = empLink + ondLink + parLink;
+            const pE = totLink > 0 ? Math.round((empLink / totLink) * 100) : 34;
+            const pO = totLink > 0 ? Math.round((ondLink / totLink) * 100) : 33;
+            const pP = totLink > 0 ? Math.max(0, 100 - pE - pO) : 33;
+
+            document.getElementById('auditBarEmp').style.width = `${pE}%`;
+            document.getElementById('auditBarOnd').style.width = `${pO}%`;
+            document.getElementById('auditBarPar').style.width = `${pP}%`;
+            document.getElementById('auditLegEmp').textContent = empLink;
+            document.getElementById('auditLegOnd').textContent = ondLink;
+            document.getElementById('auditLegPar').textContent = parLink;
+
+            document.getElementById('auditVioletOk').textContent = okCnt;
+            document.getElementById('auditVioletAj').textContent = ajCnt;
+            document.getElementById('auditVioletNc').textContent = ncCnt;
+
+            document.getElementById('auditCnt-Paralela').textContent = `${activeRows.filter(r => r.unidade === 'Cantina Volpi Paralela').length} it`;
+            document.getElementById('auditCnt-Emporio').textContent = `${activeRows.filter(r => r.unidade === 'Emporio Volpi').length} it`;
+            document.getElementById('auditCnt-Ondina').textContent = `${activeRows.filter(r => r.unidade === 'Volpi Pizzaria Ondina').length} it`;
+
+            document.getElementById('auditStore-Paralela').classList.toggle('active', state.auditFocusedStore === 'Cantina Volpi Paralela');
+            document.getElementById('auditStore-Emporio').classList.toggle('active', state.auditFocusedStore === 'Emporio Volpi');
+            document.getElementById('auditStore-Ondina').classList.toggle('active', state.auditFocusedStore === 'Volpi Pizzaria Ondina');
+
+            renderDonutChart('auditDonutSvg', 'auditDonutLegend', 'auditDonutTotal', [
+                { label: 'OK', value: okCnt, color: '#10B981' },
+                { label: 'Ajustados', value: ajCnt, color: '#F59E0B' },
+                { label: 'Não Comp.', value: ncCnt, color: '#E11D48' },
+                { label: 'Extras', value: exCnt, color: '#2563EB' }
+            ].filter(s => s.value > 0));
+
+            renderAuditTable();
+        }
+
+        function toggleAuditStoreFilter(store) {
+            state.auditFocusedStore = state.auditFocusedStore === store ? null : store;
+            document.getElementById('auditStore-Paralela').classList.toggle('active', state.auditFocusedStore === 'Cantina Volpi Paralela');
+            document.getElementById('auditStore-Emporio').classList.toggle('active', state.auditFocusedStore === 'Emporio Volpi');
+            document.getElementById('auditStore-Ondina').classList.toggle('active', state.auditFocusedStore === 'Volpi Pizzaria Ondina');
+            renderAuditTable();
+        }
+
+        function setAuditFilter(status, btnEl) {
+            state.auditStatusFilter = status;
+            document.querySelectorAll('#auditFilterPills button').forEach(b => b.classList.remove('selected'));
+            if (btnEl) btnEl.classList.add('selected');
+            renderAuditTable();
+        }
+
+        function updateJustificativa(key, field, value) {
+            if (!state.justificativas[key]) state.justificativas[key] = { motivo: '', obs: '' };
+            state.justificativas[key][field] = value;
+        }
+
+        function renderAuditTable() {
+            const fU = state.auditFocusedStore;
+            const fS = state.auditStatusFilter;
+            const fQ = normalizeText(document.getElementById('filterSearch').value);
+
+            const filtered = state.auditRows.filter(r => {
+                if (r.status === 'BRANCO') return false;
+                if (fU && r.unidade !== fU) return false;
+                if (fS === 'NAO_COMPRADO_ALL') {
+                    if (r.status !== 'FALTA' && r.status !== 'NÃO COMPRADO' && r.status !== 'PENDENTE_EXCL') return false;
+                } else if (fS !== 'TODOS' && r.status !== fS) return false;
+                if (fQ && !normalizeText(r.produto).includes(fQ)) return false;
+                return true;
+            });
+
+            const tbody = document.getElementById('auditTableBody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-[var(--text-muted)]">Nenhum item encontrado.</td></tr>';
+                return;
+            }
+
+            const statusMeta = {
+                'OK': { label: 'OK', cls: 'bg-[#10B981] text-white', sub: '' },
+                'AJUSTADO': { label: 'Ajustado', cls: 'bg-[#D97706] text-white', sub: '' },
+                'NÃO COMPRADO': { label: 'Não Comprado', cls: 'bg-[#E11D48] text-white', sub: 'Relatório não comprados' },
+                'FALTA': { label: 'Não Comprado', cls: 'bg-[#E11D48] text-white', sub: 'Sem retorno' },
+                'PENDENTE_EXCL': { label: 'Não Comprado', cls: 'bg-[#E11D48] text-white', sub: 'Aguardando exclusivo' },
+                'EXTRA': { label: 'Extra', cls: 'bg-[#2563EB] text-white', sub: '' }
+            };
+
+            tbody.innerHTML = filtered.slice(0, 400).map(r => {
+                const j = state.justificativas[r.key] || { motivo: '', obs: '' };
+                const opts = JUSTIFICATIVA_OPTIONS.map(o => `<option value="${o}" ${j.motivo === o ? 'selected' : ''}>${o || 'Selecionar motivo...'}</option>`).join('');
+                const m = statusMeta[r.status] || { label: r.status, cls: 'bg-[#2A3042] text-white', sub: '' };
+                const tooltip = `Planilha: ${fmtBr(r.qtdPlanilha)} | Exclusivo: ${fmtBr(r.qtdExclFeito)} | WhatsApp: ${fmtBr(r.qtdExtraWpp)}`;
+                return `
+                    <tr class="even:bg-[#181C28]/40">
+                        <td class="p-2.5 text-[var(--text-muted)]">${r.unidade}</td>
+                        <td class="p-2.5 font-semibold">${r.produto}</td>
+                        <td class="p-2.5 text-center text-[var(--text-muted)]">${r.uomLink || r.uomCompStr || '-'}</td>
+                        <td class="p-2.5 text-right font-mono">${fmtBr(r.qtdLink)}</td>
+                        <td class="p-2.5 text-right font-mono font-bold cursor-help underline decoration-dotted decoration-[var(--text-muted)]" title="${tooltip}">${fmtBr(r.totalComp)}</td>
+                        <td class="p-2.5 text-center">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${m.cls}">${m.label}</span>
+                            ${m.sub ? `<div class="text-[10px] text-[var(--text-muted)] mt-0.5">${m.sub}</div>` : ''}
+                        </td>
+                        <td class="p-2.5 space-y-1">
+                            <select onchange="updateJustificativa('${r.key.replace(/'/g, "\\'")}', 'motivo', this.value)" class="v-input w-full rounded-lg px-2 py-1 text-[11px]">${opts}</select>
+                            <input type="text" value="${j.obs}" oninput="updateJustificativa('${r.key.replace(/'/g, "\\'")}', 'obs', this.value)" placeholder="Observação..." class="v-input w-full rounded-lg px-2 py-1 text-[11px]">
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function exportAuditExcel() {
+            const wb = XLSX.utils.book_new();
+            const mapRow = r => {
+                const j = state.justificativas[r.key] || { motivo: '', obs: '' };
+                return { Unidade: r.unidade, Produto: r.produto, UOM: r.uomLink || r.uomCompStr, Link: r.qtdLink, Planilha: r.qtdPlanilha, Excl_Feito: r.qtdExclFeito, Extra_Wpp: r.qtdExtraWpp, Total_Comprado: r.totalComp, Status: r.status, Motivo: j.motivo, Observacao: j.obs };
+            };
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.auditRows.map(mapRow)), 'Consolidado');
+            XLSX.writeFile(wb, 'Auditoria_VMarket_Volpi_v5.xlsx');
+            showToast('Excel exportado!');
+        }
+
+        function copyAuditWhatsApp() {
+            const fU = state.auditFocusedStore;
+            const unidades = fU ? [fU] : [...new Set(state.auditRows.map(r => r.unidade))];
+            let lines = [];
+            unidades.forEach(u => {
+                const rows = state.auditRows.filter(r => r.unidade === u && r.status !== 'BRANCO');
+                if (rows.length === 0) return;
+                lines.push(`RESUMO DE COMPRAS - ${u.toUpperCase()}`);
+                lines.push('----------------------------------------');
+                const faltas = rows.filter(r => r.status === 'NÃO COMPRADO' || r.status === 'FALTA' || r.status === 'PENDENTE_EXCL');
+                const ajust = rows.filter(r => r.status === 'AJUSTADO');
+                if (ajust.length > 0) {
+                    lines.push(`AJUSTADOS (${ajust.length}):`);
+                    ajust.forEach(r => {
+                        const j = state.justificativas[r.key] || {};
+                        const mot = [j.motivo, j.obs].filter(Boolean).join(' - ');
+                        lines.push(`- ${r.produto}: ${r.qtdLink} -> ${r.totalComp} ${r.uomLink || r.uomCompStr}${mot ? ` | ${mot}` : ''}`);
+                    });
+                    lines.push('');
+                }
+                if (faltas.length > 0) {
+                    lines.push(`NAO COMPRADOS / ADIADOS (${faltas.length}):`);
+                    faltas.forEach(r => {
+                        const j = state.justificativas[r.key] || {};
+                        const mot = [j.motivo, j.obs].filter(Boolean).join(' - ');
+                        lines.push(`- ${r.produto}: ${r.qtdLink} ${r.uomLink}${mot ? ` | Motivo: ${mot}` : ''}`);
+                    });
+                    lines.push('');
+                }
+            });
+            navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('Resumo WhatsApp copiado!'));
+        }
+    </script>
+</body>
+</html>
